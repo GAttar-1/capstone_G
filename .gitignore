@@ -13,6 +13,7 @@ __pycache__/
 *.csv
 *.pdf
 vectorized_registry.txt
+document_text.txt
 Research_docs/
 
 # Editor / OS files

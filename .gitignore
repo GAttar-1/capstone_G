@@ -10,9 +10,10 @@ __pycache__/
 .env.local
 
 # Local Data / Logs
-feedback.csv
-evaluation_report.csv
+*.csv
+*.pdf
 vectorized_registry.txt
+Research_docs/
 
 # Editor / OS files
 .vscode/

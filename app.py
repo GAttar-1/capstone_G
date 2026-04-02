@@ -14,6 +14,33 @@ from rag_pipeline import ask_ai
 
 st.set_page_config(layout="wide", page_title="Reporting Xpress")
 
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    password_secret = os.getenv("WEB_PASSWORD", "cihubsecure")
+    
+    def password_entered():
+        if st.session_state["password"] == password_secret:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # don't store password
+        else:
+            st.session_state["password_correct"] = False
+
+    if st.session_state.get("password_correct", False):
+        return True
+
+    st.markdown("### 🔐 Reporting Xpress \n Please enter the shared access password to proceed.")
+    st.text_input(
+        "Password", type="password", on_change=password_entered, key="password"
+    )
+    if "password_correct" in st.session_state:
+        st.error("😕 Password incorrect")
+        
+    # Return False to halt rendering of the rest of the application
+    return False
+
+if not check_password():
+    st.stop()
+
 st.markdown(
     """
     <button id="skip-to-chat" class="skip-link" style="top: -9999px; left: 20px;">

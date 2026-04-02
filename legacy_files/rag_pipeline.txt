@@ -1,0 +1,153 @@
+# ---------- rag_pipeline.py ----------
+import os
+import re
+from openai import OpenAI
+from pinecone import Pinecone
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Initialize clients
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+
+index = pc.Index("reportingxpress")
+
+def retrieve_chunks(question):
+    """Embeds the user question and searches Pinecone for the top 5 most relevant chunks."""
+    embedding = openai_client.embeddings.create(
+        model="text-embedding-3-small",
+        input=question
+    )
+
+    query_vector = embedding.data[0].embedding
+
+    results = index.query(
+        vector=query_vector,
+        top_k=5,
+        include_metadata=True,
+        namespace="__default__"
+    )
+
+    contexts = []
+    for match in results["matches"]:
+        metadata = match["metadata"]
+        text = metadata.get("text", "")
+        
+        raw_source_id = metadata.get("citation_id") or metadata.get("report_id") or "Unknown Source"
+        source_id = raw_source_id.replace("_", " ")
+        category = metadata.get("source_file") or metadata.get("source") or "General Analytics"
+        
+        if text:
+            contexts.append({
+                "id": source_id,
+                "category": category,
+                "text": text,
+                "score": match["score"] * 100
+            })
+            
+    return contexts
+
+def ask_ai(question, require_logic=True):
+    """Passes context to the LLM. Dynamically requests logic based on the UI toggle."""
+    
+    all_contexts = retrieve_chunks(question)
+    contexts = all_contexts[:3] 
+
+    formatted_contexts = []
+    for ctx in contexts:
+        formatted_contexts.append(f"[Source ID: {ctx['id']}]\n{ctx['text']}")
+        
+    context_text = "\n\n".join(formatted_contexts)
+
+    # NEW: Strict Formatting Logic Prompt
+    logic_prompt = ""
+    if require_logic:
+        logic_prompt = """
+2. LOGIC PARSING: At the very end of your response, you MUST include a 'Reasoning Path' labeled exactly as "LOGIC:". 
+CRITICAL: Do not use bullet points or markdown bolding. You must use exactly these three uppercase labels:
+DIAGNOSIS: [State the core donor behavior or challenge you identified]
+EVIDENCE: [State the specific research or analytics applied]
+STRATEGY: [State how this logically leads to your recommendation]
+"""
+
+    prompt = f"""
+You are Rex, the intelligent fundraising strategist and RAG (Retrieval-Augmented Generation) assistant for Reporting Xpress. 
+Your purpose is to help nonprofit professionals analyze their data, understand academic research, and build actionable fundraising strategies.
+
+## Your Identity & Tone
+- You are Rex. You are warm, professional, highly analytical, and encouraging.
+- You speak directly to the user as a collaborative partner. 
+- If asked about your underlying technology or who made you, respond strictly with: "I am Rex, your Reporting Xpress AI assistant. I'm here to help you optimize your fundraising strategy!"
+- You never use profanity, slurs, or inappropriate language. 
+
+## Core Rules & Grounding
+- STRICT CONTEXT: You must answer questions and provide strategies based strictly on the Context provided below.
+- NO HALLUCINATION: You must NEVER fabricate data, metrics, or research. If the answer is not found in the context, respond gracefully: "I was unable to find that specific information in the current catalog or research documents. Could you rephrase your question?"
+- PREDICTIONS: If asked for a prediction or forecast, base it strictly on trends in the documents. Clearly state that it is a data-driven projection, not a guaranteed fact.
+
+## Required Mechanics (CRITICAL)
+1. CITATIONS: Whenever you state a fact, strategy, or recommendation derived from the context, you MUST include an inline citation using the exact Source ID provided, like this: "Personalized follow-ups increase retention [Smith 2020 Report (Page 4)]."
+{logic_prompt}
+
+Context:
+{context_text}
+
+User Question:
+{question}
+"""
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are Rex, a collaborative fundraising strategist. Always cite your sources using the exact provided Source IDs."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    raw_answer = response.choices[0].message.content
+    final_answer = raw_answer
+    
+    # Default fallback UI
+    logic_html = "<div class='logic-step'><div class='logic-detail'>Transparency Mode disabled.</div></div>"
+    
+    if require_logic and "LOGIC:" in raw_answer:
+        parts = re.split(r'[*#]*\s*LOGIC:\s*[*#]*', raw_answer, maxsplit=1)
+        
+        if len(parts) > 1:
+            final_answer = parts[0].strip()
+            raw_logic = parts[1].strip()
+            
+            # Use RegEx to cleanly slice out the three sections, ignoring any extra markdown the AI tries to sneak in
+            diag_match = re.search(r'DIAGNOSIS:\s*(.*?)(?=EVIDENCE:|$)', raw_logic, re.DOTALL | re.IGNORECASE)
+            evid_match = re.search(r'EVIDENCE:\s*(.*?)(?=STRATEGY:|$)', raw_logic, re.DOTALL | re.IGNORECASE)
+            strat_match = re.search(r'STRATEGY:\s*(.*?)$', raw_logic, re.DOTALL | re.IGNORECASE)
+            
+            diag_text = diag_match.group(1).strip().replace("**", "").replace("-", "") if diag_match else "Identified core challenge."
+            evid_text = evid_match.group(1).strip().replace("**", "").replace("-", "") if evid_match else "Reviewed relevant data."
+            strat_text = strat_match.group(1).strip().replace("**", "").replace("-", "") if strat_match else "Formulated recommendation."
+            
+            # Construct the beautiful new Timeline HTML
+            logic_html = f"""
+            <div class="logic-step">
+                <div class="logic-label label-diag">🔍 DIAGNOSIS</div>
+                <div class="logic-detail">{diag_text}</div>
+            </div>
+            <div class="logic-step">
+                <div class="logic-label label-evid">📊 EVIDENCE</div>
+                <div class="logic-detail">{evid_text}</div>
+            </div>
+            <div class="logic-step" style="border-left-color: transparent;">
+                <div class="logic-label label-strat">🎯 STRATEGY</div>
+                <div class="logic-detail">{strat_text}</div>
+            </div>
+            """
+    
+    avg_confidence = sum(c['score'] for c in contexts) / len(contexts) if contexts else 100
+    
+    return {
+        "answer": final_answer,
+        "logic": logic_html,  # Now returning pre-formatted UI components!
+        "sources": contexts,
+        "avg_confidence": avg_confidence
+    }

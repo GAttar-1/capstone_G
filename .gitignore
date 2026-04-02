@@ -1,0 +1,21 @@
+# Virtual environments
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+
+# Environment Variables
+.env
+.env.local
+
+# Local Data / Logs
+feedback.csv
+evaluation_report.csv
+vectorized_registry.txt
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,278 @@
+# ---------- Main Streamlit Application: Reporting Xpress ----------
+import streamlit as st
+import re
+import csv
+import os
+import base64
+from datetime import datetime
+from rag_pipeline import ask_ai
+
+st.set_page_config(layout="wide", page_title="Reporting Xpress")
+
+# ---------- Sidebar Settings ----------
+with st.sidebar:
+    st.header("⚙️ App Settings")
+    transparency_mode = st.toggle(
+        "Explain the Logic", 
+        value=True, 
+        help="Shows the reasoning path for every AI response."
+    )
+    st.divider()
+    if st.button("Clear Chat History", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.sources = []
+        st.rerun()
+
+# ---------- Feedback Logging Function ----------
+def log_feedback(question, answer, feedback_type):
+    file_exists = os.path.isfile('feedback.csv')
+    with open('feedback.csv', mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        if not file_exists:
+            writer.writerow(['Timestamp', 'Question', 'Answer', 'Feedback'])
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        writer.writerow([timestamp, question, answer, feedback_type])
+
+# ---------- Image Encoding for Header Icon ----------
+def get_base64_image(image_path):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    return None
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+logo_path = os.path.join(current_dir, "reportingxpresslogo.jpg")
+logo_base64 = get_base64_image(logo_path)
+
+if logo_base64:
+    header_icon = f'<img src="data:image/jpeg;base64,{logo_base64}" style="height: 32px; margin-right: 12px; vertical-align: middle; border-radius: 4px;">'
+else:
+    header_icon = "📊"
+
+# ---------- Styling ----------
+st.markdown("""
+<style>
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+    background-color: #121212 !important;
+    color: #e0e0e0 !important;
+}
+
+h1, h2, h3, h4, h5, h6, p, span, div, label {
+    color: #e0e0e0 !important;
+}
+
+.header {
+    background: #1e5ba9;
+    color: white !important;
+    padding: 18px;
+    font-size: 20px;
+    font-weight: 600;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.card {
+    background: #1e1e1e !important;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #333333 !important;
+}
+
+/* Base Logic Box */
+.logic-box {
+    background-color: #1a2332 !important;
+    border-left: 4px solid #93c5fd !important;
+    padding: 16px;
+    margin-top: 12px;
+    border-radius: 0 6px 6px 0;
+}
+.logic-header {
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #93c5fd;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+}
+
+/* NEW: Vertical Timeline UI for Reasoning Steps */
+.logic-step {
+    padding-left: 14px;
+    border-left: 2px solid #374151; /* Grey connecting line */
+    margin-bottom: 12px;
+    position: relative;
+}
+.logic-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+/* Color Coding for Steps */
+.label-diag { color: #f472b6; } /* Pink */
+.label-evid { color: #fbbf24; } /* Amber */
+.label-strat { color: #34d399; } /* Emerald Green */
+
+.logic-detail {
+    font-size: 0.85rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+}
+
+button:has(div p:contains("👍")), button:has(div p:contains("👎")) {
+    background-color: transparent !important;
+    border: 1px solid #444 !important;
+    transition: all 0.2s ease-in-out !important;
+    border-radius: 8px !important;
+}
+button:has(div p:contains("👍")):hover {
+    transform: scale(1.15) !important;
+    border-color: #4CAF50 !important;
+    background-color: rgba(76, 175, 80, 0.1) !important;
+}
+button:has(div p:contains("👎")):hover {
+    transform: scale(1.15) !important;
+    border-color: #f44336 !important;
+    background-color: rgba(244, 67, 54, 0.1) !important;
+}
+button:has(div p:contains("👍")):active, button:has(div p:contains("👎")):active {
+    transform: scale(0.95) !important;
+}
+
+.history-header {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.timestamp-pill {
+    background-color: #1a2332;
+    color: #93c5fd;
+    border: 1px solid #2a3a54;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------- Header ----------
+st.markdown(f'<div class="header">{header_icon} Reporting Xpress — AI Fundraising Assistant</div>', unsafe_allow_html=True)
+
+# ---------- Layout ----------
+chat_col, insight_col = st.columns([1.2, 1])
+
+with chat_col:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("Ask Your Question")
+
+    c_cols = st.columns(3)
+    chip_1 = c_cols[0].button("Strategies for lapsed donors?", use_container_width=True, key="c1")
+    chip_2 = c_cols[1].button("Key metrics before campaign?", use_container_width=True, key="c2")
+    chip_3 = c_cols[2].button("Improve donor retention?", use_container_width=True, key="c3")
+
+    st.write("") 
+    prompt = st.chat_input("How can we boost donor engagement?")
+
+    if chip_1: prompt = "Best strategies for lapsed donors?"
+    if chip_2: prompt = "Key metrics before campaign?"
+    if chip_3: prompt = "Improve donor retention?"
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    if prompt:
+        full_ts = datetime.now().strftime("%b %d, %Y • %I:%M %p")
+        st.session_state.messages.append({"role": "user", "content": prompt, "timestamp": full_ts})
+
+    cutoff = max(0, len(st.session_state.messages) - 2)
+    if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
+        cutoff = max(0, len(st.session_state.messages) - 1)
+
+    for i, msg in enumerate(st.session_state.messages[cutoff:]):
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"], unsafe_allow_html=True)
+            
+            if msg["role"] == "assistant":
+                if transparency_mode and "logic" in msg:
+                    # FIX: Simplified the wrapper since the HTML is now pre-built in the backend
+                    st.markdown(f'<div class="logic-box"><div class="logic-header">🧠 Reasoning Path</div>{msg["logic"]}</div>', unsafe_allow_html=True)
+
+                fb_col1, fb_col2, _ = st.columns([0.1, 0.1, 0.8])
+                q_idx = i + cutoff - 1
+                q_text = st.session_state.messages[q_idx]["content"] if q_idx >= 0 else "N/A"
+                
+                with fb_col1:
+                    if st.button("👍", key=f"up_{i+cutoff}"):
+                        log_feedback(q_text, msg["content"], "Thumbs Up")
+                        st.toast("Logged!", icon="✅")
+                with fb_col2:
+                    if st.button("👎", key=f"down_{i+cutoff}"):
+                        log_feedback(q_text, msg["content"], "Thumbs Down")
+                        st.toast("Recorded.", icon="⚠️")
+
+    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
+        with st.chat_message("assistant"):
+            with st.spinner("Analyzing donor data..."):
+                
+                result = ask_ai(prompt, require_logic=transparency_mode)
+                
+                # Default empty step if logic fails to parse
+                logic_steps = result.get("logic", "<div class='logic-step'><div class='logic-detail'>Parsing complete.</div></div>")
+                
+                formatted_answer = re.sub(r'\[(.*?)\]', r'<span style="color: #93c5fd; font-weight: bold;">[\1]</span>', result["answer"])
+                st.markdown(formatted_answer, unsafe_allow_html=True)
+                
+                if transparency_mode:
+                    st.markdown(f'<div class="logic-box"><div class="logic-header">🧠 Reasoning Path</div>{logic_steps}</div>', unsafe_allow_html=True)
+
+        ts_assist = datetime.now().strftime("%b %d, %Y • %I:%M %p")
+        st.session_state.messages.append({
+            "role": "assistant", 
+            "content": formatted_answer, 
+            "timestamp": ts_assist,
+            "logic": logic_steps
+        })
+        st.session_state["sources"] = result.get("sources", [])
+        st.session_state["confidence"] = result.get("avg_confidence", 100)
+        st.rerun()
+
+    if cutoff > 0:
+        st.write("")
+        with st.expander("📂 View Previous Messages", expanded=False):
+            for i, msg in enumerate(st.session_state.messages[:cutoff]):
+                with st.chat_message(msg["role"]):
+                    st.markdown(
+                        f'<div class="history-header"><div class="timestamp-pill">{msg.get("timestamp", "")}</div></div>', 
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(msg["content"], unsafe_allow_html=True)
+                    if transparency_mode and "logic" in msg:
+                        st.markdown(f'<div class="logic-box"><div class="logic-header">🧠 Reasoning Path</div>{msg["logic"]}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with insight_col:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("Analytics Insights")
+    st.markdown("### Supporting Sources")
+
+    if "sources" in st.session_state and st.session_state["sources"]:
+        for source in st.session_state["sources"]:
+            st.markdown(f'<div class="source-box"><b>[{source["id"]}]</b><br><br>{source["text"][:250]}...</div>', unsafe_allow_html=True)
+            with st.expander(f"Full text: {source['id']}"):
+                st.code(source["text"], language="text")
+    else:
+        st.write("Sources will appear after a question is asked.")
+
+    st.write("")
+    st.markdown("### AI Confidence Level")
+    conf = st.session_state.get("confidence", 100)
+    if conf >= 80: st.success(f"High ({conf:.1f}%)")
+    elif conf >= 60: st.warning(f"Medium ({conf:.1f}%)")
+    else: st.error(f"Low ({conf:.1f}%)")
+    st.markdown('</div>', unsafe_allow_html=True)

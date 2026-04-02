@@ -1,0 +1,63 @@
+# ---------- vectorize_reports.py ----------
+import os
+import re
+import fitz  # PyMuPDF
+from openai import OpenAI
+from pinecone import Pinecone
+from dotenv import load_dotenv
+
+load_dotenv()
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+index = pc.Index("reportingxpress")
+
+CATALOG_PATH = "catalog.pdf" # The document containing QX codes
+
+def extract_and_split_by_id(pdf_path):
+    print(f"Parsing {pdf_path} for Report IDs...")
+    doc = fitz.open(pdf_path)
+    full_text = ""
+    for page in doc:
+        full_text += page.get_text("text") + "\n"
+
+    # Split the text whenever a "QX" code is found (e.g., QX-101 or QX101)
+    # This ensures each report is one chunk, regardless of length.
+    report_chunks = re.split(r'(?i)(QX\s*-?\s*\d+)', full_text)
+    
+    final_docs = []
+    # Re-combine the ID with its following description
+    for i in range(1, len(report_chunks), 2):
+        report_id = report_chunks[i].replace(" ", "").replace("-", "").upper()
+        content = report_chunks[i+1].strip()
+        if content:
+            final_docs.append({"id": report_id, "text": f"{report_id}: {content}"})
+            
+    return final_docs
+
+def upload_reports(docs):
+    print(f"Vectorizing {len(docs)} individual reports...")
+    for doc in docs:
+        response = openai_client.embeddings.create(
+            model="text-embedding-3-small",
+            input=doc["text"]
+        )
+        embedding = response.data[0].embedding
+
+        index.upsert(vectors=[{
+            "id": f"report-{doc['id']}",
+            "values": embedding,
+            "metadata": {
+                "text": doc["text"],
+                "report_id": doc["id"],
+                "source": "Analytics Catalog",
+                "type": "Report" # Tagged as a report for smart routing
+            }
+        }], namespace="__default__")
+    print("✅ All reports vectorized by ID.")
+
+if __name__ == "__main__":
+    if os.path.exists(CATALOG_PATH):
+        reports = extract_and_split_by_id(CATALOG_PATH)
+        upload_reports(reports)
+    else:
+        print("Catalog not found.")

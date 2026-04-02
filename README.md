@@ -13,27 +13,6 @@ Reporting Xpress (RX) is a professional, AI-driven fundraising assistant that pr
   - Metric: Cosine Similarity
 - **Document Processing**: `PyMuPDF` (`fitz`) and LangChain's `RecursiveCharacterTextSplitter`.
 
-## Key Files & Directory Structure
-
-```text
-c:\Users\gabri\OneDrive\Desktop\reportingxpress1\
-├── app.py                     # Main Streamlit frontend. Handles chat UI, layout, and calling rag_pipeline.
-├── rag_pipeline.py            # RAG execution engine. Contains Pinecone retrieval and strict AI completion prompting.
-├── vectorize_pdf.py           # Ingestion pipeline. Processes raw PDFs from Research_docs and uploads to Pinecone.
-├── benchmark.py               # Evaluation suite. Runs automated queries to test AI outputs against the vector DB.
-├── context.md                 # Project directives and Sprint checklist.
-├── .env                       # Environment variables (OpenAI & Pinecone credentials).
-├── Research_docs/             # Source PDFs ingested into the pipeline.
-│   ├── CI_Hub_Analytics_Catalog Version for RAG (2).pdf
-│   ├── PreventDonorAttrition (1).pdf
-│   └── (16 other industry-standard reports and whitepapers)
-├── utility/                   # Developer tools and utility scripts.
-│   ├── clear_index.py         # Flushes all Pinecone vectors when ingestion schema changes.
-│   ├── check_metadata.py      # Audits existing metadata in Pinecone.
-│   └── retrieve.py            # Manual retrieval testing outside of the Streamlit UI.
-└── legacy_files/              # Outdated or deprecated scripts.
-```
-
 ## Core Architecture
 
 ### 1. Ingestion Engine (`vectorize_pdf.py`)

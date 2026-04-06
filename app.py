@@ -358,7 +358,7 @@ st.markdown(
     }}
 
     [data-testid="stHeader"] {{
-        background: {page_bg} !important;
+        height: 0px !important;
     }}
 
     body, .stApp, [data-testid="stAppViewContainer"] {{
@@ -429,16 +429,7 @@ st.markdown(
         margin-bottom: 1rem;
     }}
 
-    [data-testid="stVerticalBlockBorderWrapper"] {{
-        background: {panel_bg} !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 16px !important;
-        box-shadow: {card_shadow} !important;
-        padding: 1rem 1.15rem !important;
-    }}
-
-    .dashboard-panel-column,
-    .dashboard-panel-column-inner {{
+    [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"] {{
         background: {panel_bg} !important;
         border: 1px solid {border_color} !important;
         border-radius: 16px !important;
@@ -447,7 +438,7 @@ st.markdown(
         overflow: hidden !important;
     }}
 
-    [data-testid="stVerticalBlockBorderWrapper"] > div {{
+    [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"] > div {{
         background: transparent !important;
     }}
 
@@ -897,7 +888,7 @@ with chat_col:
                 selected_prompt = value
 
         with st.form("question_form", clear_on_submit=True):
-            input_col, send_col = st.columns([6.4, 1.0])
+            input_col, send_col = st.columns([5.0, 1.2])
             with input_col:
                 typed_prompt = st.text_input(
                     "Ask Rex a question",
@@ -1309,35 +1300,4 @@ with insight_col:
                         f"**{html.escape(source['id'])}** \n{html.escape(source['text'][:300])}...",
                         unsafe_allow_html=True,
                     )
-
-components.html(
-    """
-    <script>
-    const doc = window.parent.document;
-
-    function attachPanelClasses() {
-        const markerMap = {
-            'chat-panel-marker': 'dashboard-panel-column',
-            'insight-panel-marker': 'dashboard-panel-column'
-        };
-
-        Object.entries(markerMap).forEach(([markerId, className]) => {
-            const marker = doc.getElementById(markerId);
-            if (!marker) return;
-            const column = marker.closest('div[data-testid="column"]');
-            if (column) {
-                column.classList.add(className);
-                if (column.firstElementChild) {
-                    column.firstElementChild.classList.add(className + '-inner');
-                }
-            }
-        });
-    }
-
-    attachPanelClasses();
-    setInterval(attachPanelClasses, 500);
-    </script>
-    """,
-    height=0,
-    width=0,
-)
+

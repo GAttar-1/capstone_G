@@ -230,10 +230,11 @@ def build_selection_reason(question, logic_details, source_count):
 
 def build_suggested_action(answer, logic_details):
     strategy = logic_details.get("strategy", "")
-    summary = summarize_answer(answer, max_sentences=3)
+    summary = strip_html(answer).strip()
 
     if strategy and summary:
-        return f"{strategy.rstrip('.')} In practice, {summary[0].lower() + summary[1:] if len(summary) > 1 else summary}."
+        # We assume strategy and summary are full paragraphs, so we separate them properly
+        return f"{strategy.rstrip('.')} In practice, {summary}"
     if strategy:
         return strategy
     return summary
@@ -1184,7 +1185,7 @@ with insight_col:
             selection_reason = build_selection_reason(latest_question, logic_details, source_count)
             source_chips = "".join(
                 f"<span class='source-chip'>{html.escape(source['id'])}</span>"
-                for source in source_list[:4]
+                for source in source_list
             )
             if not source_chips:
                 source_chips = f"<span style='color:{text_secondary};'>Sources will appear after a question is asked.</span>"

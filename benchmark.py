@@ -115,6 +115,8 @@ def run_evaluation():
         answer = response.get("answer", "Error generating answer.")
         confidence = response.get("avg_confidence", 0)
         
+        print(f"   ↳ Confidence: {confidence:.2f}%")
+        
         # Format the sources into a clean, readable string
         sources = [src["id"] for src in response.get("sources", [])]
         sources_str = " | ".join(sources) if sources else "None Found"
@@ -127,16 +129,87 @@ def run_evaluation():
             "AI Answer": answer
         })
         
-    # Save the results to a CSV file
-    csv_filename = "evaluation_report.csv"
+    # Calculate Average Confidence
+    avg_confidence = 0
+    if results:
+        total_conf = sum(float(r["Confidence Score"].replace("%", "")) for r in results)
+        avg_confidence = total_conf / len(results)
+    # Calculate Average Confidence for Summary
+    avg_confidence = 0
+    if results:
+        # We use a clean results list (excluding the summary row if it was added)
+        numeric_results = [r for r in results if r["Timestamp"] != "SUMMARY"]
+        total_conf = sum(float(r["Confidence Score"].replace("%", "")) for r in numeric_results)
+        avg_confidence = total_conf / len(numeric_results)
+    
+    # Append the Summary/Average row to the results (for the CSV itself)
+    results.append({
+        "Timestamp": "SUMMARY",
+        "Question": "AVERAGE CONFIDENCE SCORE",
+        "Confidence Score": f"{avg_confidence:.2f}%",
+        "Sources Used": "",
+        "AI Answer": ""
+    })
+
     with open(csv_filename, mode="w", newline="", encoding="utf-8") as file:
         fieldnames = ["Timestamp", "Question", "Confidence Score", "Sources Used", "AI Answer"]
         writer = csv.DictWriter(file, fieldnames=fieldnames)
-        
         writer.writeheader()
         writer.writerows(results)
-        
+    
     print(f"\n✅ Evaluation complete! Results saved to {csv_filename}")
+
+    # Auto-append to Combined_Benchmark_Results.xlsx using PowerShell COM automation
+    excel_file = os.path.abspath("Combined_Benchmark_Results.xlsx")
+    csv_abs_path = os.path.abspath(csv_filename)
+    # The user specifed "Google Antigravity #" naming convention
+    sheet_name = f"Google Antigravity {version}"
+    
+    if os.path.exists(excel_file):
+        print(f"🔄 Appending {sheet_name} to the Master Excel workbook...")
+        ps_script = f"""
+        $ErrorActionPreference = "Stop"
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $false
+        $excel.DisplayAlerts = $false
+        try {{
+            $targetWb = $excel.Workbooks.Open('{excel_file}')
+            $sourceWb = $excel.Workbooks.Open('{csv_abs_path}')
+            $sourceSheet = $sourceWb.Sheets.Item(1)
+            $lastSheet = $targetWb.Sheets.Item($targetWb.Sheets.Count)
+            $sourceSheet.Copy([System.Reflection.Missing]::Value, $lastSheet)
+            $newSheet = $targetWb.Sheets.Item($targetWb.Sheets.Count)
+            $newSheet.Name = '{sheet_name}'
+            
+            # Place the Average Confidence in Cell H1
+            $newSheet.Cells.Item(1, 8).Value = 'Average Confidence: {avg_confidence:.2f}%'
+            $newSheet.Cells.Item(1, 8).Font.Bold = $true
+            
+            $sourceWb.Close($false)
+            $targetWb.Save()
+            Write-Host "Success"
+        }} catch {{
+            Write-Host "Excel Append Error: $_"
+        }} finally {{
+            if ($targetWb) {{ $targetWb.Close($false) }}
+            $excel.Quit()
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+        }}
+        """
+        import subprocess
+        result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True)
+        if "Success" in result.stdout:
+            print(f"✅ Successfully appended to {os.path.basename(excel_file)} as tab '{sheet_name}'!")
+            # Cleanup: Delete the CSV after successful merge as requested
+            try:
+                os.remove(csv_filename)
+                print(f"🗑️ Deleted temporary file: {csv_filename}")
+            except Exception as e:
+                print(f"⚠️ Could not delete CSV: {e}")
+        else:
+            print(f"⚠️ Failed to append to Excel. Output: {result.stdout} {result.stderr}")
+    else:
+        print(f"⚠️ Master workbook not found at {excel_file}. Skipping Excel merge.")
 
 if __name__ == "__main__":
     run_evaluation()

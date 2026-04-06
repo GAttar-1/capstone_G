@@ -429,17 +429,14 @@ st.markdown(
         margin-bottom: 1rem;
     }}
 
-    [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"] {{
+    [data-testid="column"]:has(span[title="chat-panel-marker"]),
+    [data-testid="column"]:has(span[title="insight-panel-marker"]) {{
         background: {panel_bg} !important;
         border: 1px solid {border_color} !important;
         border-radius: 16px !important;
         box-shadow: {card_shadow} !important;
         padding: 1.2rem 1.3rem 1.35rem 1.3rem !important;
         overflow: hidden !important;
-    }}
-
-    [data-testid="column"] [data-testid="stVerticalBlockBorderWrapper"] > div {{
-        background: transparent !important;
     }}
 
     [data-testid="stTextInputRootElement"] > div {{
@@ -869,9 +866,9 @@ if "question_input" not in st.session_state:
 chat_col, insight_col = st.columns([1.2, 1], gap="large")
 
 with chat_col:
-    st.markdown("<div id='chat-panel-marker'></div>", unsafe_allow_html=True)
+    st.markdown("<span title='chat-panel-marker'></span>", unsafe_allow_html=True)
     # --- FIX: Moved ENTIRE left side into the st.container to create ONE unified card ---
-    with st.container(border=True):
+    with st.container(border=False):
         st.markdown("<div class='panel-heading'>Ask Your Question</div>", unsafe_allow_html=True)
 
         chip_prompts = [
@@ -1151,7 +1148,7 @@ with chat_col:
 
 
 with insight_col:
-    st.markdown("<div id='insight-panel-marker'></div>", unsafe_allow_html=True)
+    st.markdown("<span title='insight-panel-marker'></span>", unsafe_allow_html=True)
     is_processing = bool(st.session_state.messages and st.session_state.messages[-1]["role"] == "user")
     latest_user = next((m for m in reversed(st.session_state.messages) if m["role"] == "user"), None)
     latest_question = strip_html(latest_user["content"]) if latest_user else ""
@@ -1179,7 +1176,7 @@ with insight_col:
         confidence_color = confidence_low
         confidence_symbol = "v"
 
-    with st.container(border=True):
+    with st.container(border=False):
         st.markdown("<div class='panel-heading'>Analytics Insights</div>", unsafe_allow_html=True)
         st.markdown(
             f"""

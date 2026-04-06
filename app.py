@@ -359,6 +359,7 @@ st.markdown(
 
     [data-testid="stHeader"] {{
         height: 0px !important;
+        background: transparent !important;
     }}
 
     body, .stApp, [data-testid="stAppViewContainer"] {{
@@ -439,49 +440,29 @@ st.markdown(
         overflow: hidden !important;
     }}
 
-    [data-testid="stTextInputRootElement"] > div {{
-        min-height: auto !important;
-        background: {input_bg} !important;
-        border-radius: 12px !important;
-    }}
-
-    div[data-baseweb="input"] {{
+    div[data-baseweb="input"],
+    div[data-baseweb="input"] > div,
+    [data-testid="stTextInput"] > div {{
         min-height: 58px !important;
         border-radius: 12px !important;
         background: {input_bg} !important;
     }}
 
-    div[data-baseweb="input"] > div {{
-        min-height: 58px !important;
-        display: flex !important;
-        align-items: center !important;
-    }}
-
-    [data-testid="stTextInputRootElement"] input {{
+    div[data-testid="stTextInput"] input,
+    div[data-baseweb="input"] input {{
         background: {input_bg} !important;
         border: 1px solid {border_color} !important;
         border-radius: 12px !important;
         color: {text_primary} !important;
         min-height: 56px !important;
         height: 56px !important;
-        padding-top: 0.8rem !important;
-        padding-bottom: 0.8rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        line-height: 1.4 !important;
-        box-sizing: border-box !important;
-        vertical-align: baseline !important;
+        padding: 0 1rem !important;
+        line-height: normal !important;
         box-shadow: inset 0 1px 2px rgba(17, 40, 75, 0.04);
     }}
 
-    div[data-baseweb="input"] input {{
-        min-height: 58px !important;
-        height: 58px !important;
-        padding: 0 1rem !important;
-        line-height: normal !important;
-    }}
-
-    [data-testid="stTextInputRootElement"] input::placeholder {{
+    div[data-testid="stTextInput"] input::placeholder,
+    div[data-baseweb="input"] input::placeholder {{
         color: #8da0bb !important;
     }}
 

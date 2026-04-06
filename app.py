@@ -12,7 +12,7 @@ import streamlit.components.v1 as components
 
 from rag_pipeline import ask_ai
 
-st.set_page_config(layout="wide", page_title="Reporting Xpress")
+st.set_page_config(layout="wide", page_title="Reporting Xpress", initial_sidebar_state="collapsed")
 
 def check_password():
     """Returns `True` if the user had the correct password."""

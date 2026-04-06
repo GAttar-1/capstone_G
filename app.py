@@ -358,7 +358,7 @@ st.markdown(
     }}
 
     [data-testid="stHeader"] {{
-        height: 0px !important;
+        background: transparent !important;
     }}
 
     body, .stApp, [data-testid="stAppViewContainer"] {{

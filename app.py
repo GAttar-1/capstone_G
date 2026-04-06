@@ -35,7 +35,6 @@ def check_password():
     if "password_correct" in st.session_state:
         st.error("😕 Password incorrect")
         
-    # Return False to halt rendering of the rest of the application
     return False
 
 if not check_password():

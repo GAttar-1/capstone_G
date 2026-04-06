@@ -429,26 +429,14 @@ st.markdown(
         margin-bottom: 1rem;
     }}
 
-    [data-testid="stVerticalBlockBorderWrapper"] {{
-        background: {panel_bg} !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 16px !important;
-        box-shadow: {card_shadow} !important;
-        padding: 1rem 1.15rem !important;
-    }}
-
-    .dashboard-panel-column,
-    .dashboard-panel-column-inner {{
+    [data-testid="column"]:has(#chat-panel-marker),
+    [data-testid="column"]:has(#insight-panel-marker) {{
         background: {panel_bg} !important;
         border: 1px solid {border_color} !important;
         border-radius: 16px !important;
         box-shadow: {card_shadow} !important;
         padding: 1.2rem 1.3rem 1.35rem 1.3rem !important;
         overflow: hidden !important;
-    }}
-
-    [data-testid="stVerticalBlockBorderWrapper"] > div {{
-        background: transparent !important;
     }}
 
     [data-testid="stTextInputRootElement"] > div {{
@@ -1309,35 +1297,4 @@ with insight_col:
                         f"**{html.escape(source['id'])}** \n{html.escape(source['text'][:300])}...",
                         unsafe_allow_html=True,
                     )
-
-components.html(
-    """
-    <script>
-    const doc = window.parent.document;
-
-    function attachPanelClasses() {
-        const markerMap = {
-            'chat-panel-marker': 'dashboard-panel-column',
-            'insight-panel-marker': 'dashboard-panel-column'
-        };
-
-        Object.entries(markerMap).forEach(([markerId, className]) => {
-            const marker = doc.getElementById(markerId);
-            if (!marker) return;
-            const column = marker.closest('div[data-testid="column"]');
-            if (column) {
-                column.classList.add(className);
-                if (column.firstElementChild) {
-                    column.firstElementChild.classList.add(className + '-inner');
-                }
-            }
-        });
-    }
-
-    attachPanelClasses();
-    setInterval(attachPanelClasses, 500);
-    </script>
-    """,
-    height=0,
-    width=0,
-)
+

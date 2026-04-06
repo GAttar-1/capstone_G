@@ -357,21 +357,21 @@ st.markdown(
         max-width: 1440px !important;
     }}
 
-    [data-testid="stHeader"] {
+    [data-testid="stHeader"] {{
         height: 0px !important;
-    }
+    }}
 
-    [data-testid="collapsedControl"] {
+    [data-testid="collapsedControl"] {{
         top: 85px !important;
         z-index: 999999 !important;
-    }
+    }}
 
-    .insight-box-body {
+    .insight-box-body {{
         white-space: normal !important;
         word-wrap: break-word !important;
         line-height: 1.5 !important;
         overflow-wrap: break-word !important;
-    }
+    }}
 
     body, .stApp, [data-testid="stAppViewContainer"] {{
         background: {page_bg} !important;

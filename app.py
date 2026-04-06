@@ -359,6 +359,8 @@ st.markdown(
 
     [data-testid="stHeader"] {{
         height: 0px !important;
+        background: transparent !important;
+        display: none !important;
     }}
 
     body, .stApp, [data-testid="stAppViewContainer"] {{
@@ -439,46 +441,31 @@ st.markdown(
         overflow: hidden !important;
     }}
 
-    [data-testid="stTextInputRootElement"] > div {{
+    [data-testid="stTextInputRootElement"],
+    [data-testid="stTextInputRootElement"] > div,
+    div[data-baseweb="input"],
+    div[data-baseweb="input"] > div {{
         min-height: auto !important;
         background: {input_bg} !important;
+        background-color: {input_bg} !important;
         border-radius: 12px !important;
     }}
 
-    div[data-baseweb="input"] {{
-        min-height: 58px !important;
-        border-radius: 12px !important;
+    [data-testid="stTextInputRootElement"] input,
+    div[data-baseweb="input"] input {{
         background: {input_bg} !important;
-    }}
-
-    div[data-baseweb="input"] > div {{
-        min-height: 58px !important;
-        display: flex !important;
-        align-items: center !important;
-    }}
-
-    [data-testid="stTextInputRootElement"] input {{
-        background: {input_bg} !important;
+        background-color: {input_bg} !important;
         border: 1px solid {border_color} !important;
         border-radius: 12px !important;
         color: {text_primary} !important;
         min-height: 56px !important;
         height: 56px !important;
-        padding-top: 0.8rem !important;
-        padding-bottom: 0.8rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        line-height: 1.4 !important;
+        padding: 0 1rem !important;
+        line-height: normal !important;
         box-sizing: border-box !important;
         vertical-align: baseline !important;
         box-shadow: inset 0 1px 2px rgba(17, 40, 75, 0.04);
-    }}
-
-    div[data-baseweb="input"] input {{
-        min-height: 58px !important;
-        height: 58px !important;
-        padding: 0 1rem !important;
-        line-height: normal !important;
+        -webkit-text-fill-color: {text_primary} !important;
     }}
 
     [data-testid="stTextInputRootElement"] input::placeholder {{
@@ -868,7 +855,7 @@ chat_col, insight_col = st.columns([1.2, 1], gap="large")
 with chat_col:
     st.markdown("<div id='chat-panel-marker'></div>", unsafe_allow_html=True)
     # --- FIX: Moved ENTIRE left side into the st.container to create ONE unified card ---
-    with st.container(border=True):
+    with st.container(border=False):
         st.markdown("<div class='panel-heading'>Ask Your Question</div>", unsafe_allow_html=True)
 
         chip_prompts = [
@@ -1176,7 +1163,7 @@ with insight_col:
         confidence_color = confidence_low
         confidence_symbol = "v"
 
-    with st.container(border=True):
+    with st.container(border=False):
         st.markdown("<div class='panel-heading'>Analytics Insights</div>", unsafe_allow_html=True)
         st.markdown(
             f"""

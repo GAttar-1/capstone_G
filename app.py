@@ -4,13 +4,14 @@ import html
 import io
 import os
 import re
+import time
 from datetime import datetime
 import streamlit.components.v1 as components
 
 import streamlit as st
 import streamlit.components.v1 as components
 
-from rag_pipeline import ask_ai
+from rag_pipeline import ask_ai, ask_ai_stream
 
 st.set_page_config(layout="wide", page_title="Reporting Xpress", initial_sidebar_state="collapsed")
 
@@ -416,6 +417,12 @@ st.markdown(
 
     .page-shell {{
         padding: 28px 8px 0 8px;
+        animation: page-fade-in 0.45s ease-out both;
+    }}
+
+    @keyframes page-fade-in {{
+        from {{ opacity: 0; transform: translateY(5px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
     }}
 
     .panel-heading {{
@@ -683,6 +690,52 @@ st.markdown(
         50% {{ transform: scale(0.82); opacity: 0.72; }}
     }}
 
+    /* --- STREAMING BUBBLE --- */
+    .stream-bubble {{
+        background: {assistant_bubble_bg};
+        color: #ffffff !important;
+        border-radius: 16px;
+        border-top-right-radius: 6px;
+        padding: 0.95rem 1.1rem;
+        max-width: 82%;
+        margin-left: auto;
+        box-shadow: 0 10px 24px rgba(20, 50, 95, 0.12);
+        font-size: 0.98rem;
+        line-height: 1.7;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }}
+
+    .stream-bubble, .stream-bubble * {{
+        color: #ffffff !important;
+    }}
+
+    .stream-label {{
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #8ab4f8;
+        margin-bottom: 0.45rem;
+        text-align: right;
+    }}
+
+    .stream-cursor {{
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: #8ab4f8;
+        margin-left: 2px;
+        vertical-align: text-bottom;
+        border-radius: 1px;
+        animation: blink-cursor 0.75s step-end infinite;
+    }}
+
+    @keyframes blink-cursor {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0; }}
+    }}
+
     /* --- UNIFIED INSIGHTS GROUP CSS TO MATCH FIGMA --- */
     .insight-group {{
         border: 1px solid {border_color};
@@ -690,6 +743,13 @@ st.markdown(
         overflow: hidden;
         margin-bottom: 1.5rem;
         box-shadow: 0 2px 12px rgba(0,0,0,0.02);
+        animation: insights-fade-in 1.2s ease-out both;
+    }}
+
+    @keyframes insights-fade-in {{
+        0%   {{ opacity: 0; transform: translateY(12px); }}
+        40%  {{ opacity: 0; }}
+        100% {{ opacity: 1; transform: translateY(0);   }}
     }}
 
     .insight-box {{
@@ -1076,8 +1136,59 @@ with chat_col:
                 history_text = "\n".join(history_lines)
                 contextual_prompt = f"Previous Chat Context:\n{history_text}\n\nCurrent User Question: {prompt}"
 
-            result = ask_ai(contextual_prompt, require_logic=transparency_mode)
+            # --- STREAMING: Simple inline bubble, page fades in after done ---
+            stream_placeholder = st.empty()
+            streamed_text = ""
+            result = None
+
+            for event_type, event_value in ask_ai_stream(contextual_prompt, require_logic=transparency_mode):
+                if event_type == "token":
+                    streamed_text += event_value
+                    display_text = re.split(r'LOGIC:', streamed_text)[0]
+                    stream_placeholder.markdown(
+                        f"""
+                        <div class="stream-label">Rex &nbsp;✦&nbsp; Typing...</div>
+                        <div class="stream-bubble">{display_text}<span class="stream-cursor"></span></div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                elif event_type == "meta":
+                    result = event_value
+
+            # Streaming done - clear bubble, scroll to top, then insights fade in
+            stream_placeholder.empty()
             thinking_placeholder.empty()
+
+            # Soft scroll to top before rerun so user sees the full answer from the beginning
+            # A unique key forces Streamlit to treat each call as a fresh component
+            import random
+            _scroll_uid = random.random()
+            components.html(f"""
+                <script>
+                // scroll-uid: {_scroll_uid}
+                setTimeout(function() {{
+                    var el = window.parent.document.querySelector('[data-testid="stMain"]')
+                           || window.parent.document.querySelector('section.main')
+                           || window.parent.document.documentElement;
+                    if (!el) return;
+                    var start = el.scrollTop;
+                    var duration = 900;
+                    var startTime = null;
+                    function easeInOutCubic(t) {{
+                        return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+                    }}
+                    function step(ts) {{
+                        if (!startTime) startTime = ts;
+                        var progress = Math.min((ts - startTime) / duration, 1);
+                        el.scrollTop = start * (1 - easeInOutCubic(progress));
+                        if (progress < 1) window.requestAnimationFrame(step);
+                    }}
+                    window.requestAnimationFrame(step);
+                }}, 200);
+                </script>
+            """, height=1)
+            time.sleep(1.3)  # enough for iframe init + 200ms delay + 900ms scroll
+
 
             logic_steps = result.get(
                 "logic",

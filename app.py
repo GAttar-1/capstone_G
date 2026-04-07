@@ -401,28 +401,33 @@ st.markdown(
         max-width: 1440px !important;
     }}
 
-    /* THE REFINED NAVIGATION FIX: Targeted strictly for sidebar navigation arrows */
-    /* THE UNIVERSAL OVERRIDE: Targets every possible tag (*) inside the navigation button to force branding */
-    button[aria-label*="sidebar"] *,
-    button[data-testid*="sidebar"] *,
-    [data-testid*="SidebarTrigger"] *,
-    div[data-testid="stAppViewContainer"] > button:first-of-type * {{
-        font-size: 47px !important; /* Branded visibility for any icon type */
-        color: #0a5fd8 !important;   /* Reporting Xpress Blue */
+    /* THE SILVER BULLET: Targets the exact SVG path data provided for the navigation chevron */
+    path[d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z"],
+    path[d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"] {{
         fill: #0a5fd8 !important;
-        font-weight: 900 !important;
-        line-height: 1 !important;
     }}
 
-    /* Global z-index boost and positional pinning for the toggle */
+    /* Scale the SVG container that holds these specific paths */
+    svg:has(path[d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z"]),
+    svg:has(path[d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"]),
+    [data-testid*="stSidebarTrigger"] svg {{
+        width: 48px !important;
+        height: 48px !important;
+        color: #0a5fd8 !important;
+        fill: #0a5fd8 !important;
+    }}
+
+    /* Ensuring the sidebar trigger button area is large enough for the new icon */
     button[aria-label*="sidebar"],
-    div[data-testid="stAppViewContainer"] > button:first-of-type,
-    [data-testid*="SidebarTrigger"] {{
+    [data-testid*="stSidebarTrigger"] {{
+        width: 60px !important;
+        height: 60px !important;
         z-index: 9999999 !important;
         pointer-events: auto !important;
         cursor: pointer !important;
         top: 0px !important;
         left: 0px !important;
+        background: transparent !important;
     }}
 
     /* Essential header height adjustment */
@@ -430,6 +435,11 @@ st.markdown(
         height: 60px !important;
         background: transparent !important;
         z-index: 100 !important;
+    }}
+
+    /* Permanent fix for obstructing tooltip */
+    [data-testid="stInstructions"] {{
+        display: none !important;
     }}
 
     /* Permanent fix for obstructing tooltip */

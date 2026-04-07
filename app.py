@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 import streamlit as st
 import streamlit.components.v1 as components
 
-from rag_pipeline import ask_ai, ask_ai_stream
+from rag_pipeline import ask_ai, ask_ai_stream, flag_chunk_in_pinecone
 
 st.set_page_config(layout="wide", page_title="Reporting Xpress", initial_sidebar_state="collapsed")
 
@@ -20,7 +20,10 @@ def check_password():
     password_secret = os.getenv("WEB_PASSWORD", "cihubsecure")
     
     def password_entered():
-        if st.session_state["password"] == password_secret:
+        entered = st.session_state.get("password")
+        if entered is None:
+            return
+        if entered == password_secret:
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # don't store password
         else:
@@ -230,15 +233,54 @@ def build_selection_reason(question, logic_details, source_count):
 
 
 def build_suggested_action(answer, logic_details):
-    strategy = logic_details.get("strategy", "")
-    summary = strip_html(answer).strip()
+    """
+    Distills the full AI answer into 2-3 crisp, actionable next-steps.
+    Uses a fast LLM call so the actions feel distinct from the main answer.
+    Falls back to a simple extraction if the call fails.
+    """
+    from openai import OpenAI
+    import os
 
-    if strategy and summary:
-        # We assume strategy and summary are full paragraphs, so we separate them properly
-        return f"{strategy.rstrip('.')} In practice, {summary}"
+    plain_answer = strip_html(answer).strip()
+    strategy = logic_details.get("strategy", "")
+
+    # Build a concise summary to send — no need to send the full text
+    context = plain_answer[:800]
+    if strategy:
+        context = f"Strategy: {strategy}\n\nFull Answer:\n{context}"
+
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.1,
+            max_tokens=150,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You extract concrete action steps from an AI advisor's response. "
+                        "Output EXACTLY 2-3 short bullet points (each under 15 words). "
+                        "Each step must be a specific, actionable task the user can do RIGHT NOW. "
+                        "Start each bullet with a verb. Do NOT repeat the analysis — just the actions. "
+                        "Format: one bullet per line, starting with •"
+                    )
+                },
+                {"role": "user", "content": context}
+            ]
+        )
+        raw_actions = response.choices[0].message.content.strip()
+        if raw_actions:
+            # Normalize: split into lines, strip each line, join back with newlines
+            lines = [l.strip() for l in raw_actions.split('\n') if l.strip()]
+            return "\n".join(lines)
+    except Exception:
+        pass
+
+    # Fallback: extract key sentences starting with verbs
     if strategy:
         return strategy
-    return summary
+    return plain_answer[:200] + " …" if len(plain_answer) > 200 else plain_answer
 
 
 def get_latest_completed_exchange(messages):
@@ -362,6 +404,11 @@ st.markdown(
     [data-testid="stHeader"] {{
         height: 0px !important;
         background: transparent !important;
+    }}
+
+    /* Permanent fix for obstructing tooltip */
+    [data-testid="stInstructions"] {{
+        display: none !important;
     }}
 
     body, .stApp, [data-testid="stAppViewContainer"] {{
@@ -774,6 +821,7 @@ st.markdown(
     .insight-box-body {{
         padding: 1.1rem;
         color: {text_primary} !important;
+        white-space: pre-wrap;
     }}
 
     .insight-box-body strong {{
@@ -802,15 +850,28 @@ st.markdown(
         font-size: 1.4rem;
     }}
 
+    /* --- SOURCE CHIPS --- */
     .source-chip {{
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
         background: {source_bg};
         border: 1px solid {border_color};
         border-radius: 999px;
-        padding: 0.38rem 0.7rem;
-        margin: 0 0.45rem 0.45rem 0;
+        padding: 0.32rem 0.75rem;
+        margin: 0 0.4rem 0.4rem 0;
+        font-size: 0.8rem;
+        font-weight: 500;
         color: {text_primary} !important;
-        font-size: 0.84rem;
+    }}
+
+    .chip-score {{
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #2665bc;
+        background: rgba(38,101,188,0.10);
+        border-radius: 999px;
+        padding: 0.05rem 0.4rem;
     }}
 
     .skip-link {{
@@ -847,6 +908,21 @@ st.markdown(
         border: 1px solid {border_color} !important;
         border-radius: 12px !important;
         background: {panel_alt_bg} !important;
+    }}
+
+    /* Aggressively hide the 'Press Enter to submit' tooltip that blocks the view */
+    [data-testid="stInstructions"] {{
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }}
+    /* Ensure the input container stays visible but clear of instruction text */
+    [data-testid="stTextInput"] div:has(input) + div {{
+        display: none !important;
     }}
 
     @media (max-width: 900px) {{
@@ -1124,24 +1200,30 @@ with chat_col:
                     with feedback_col2:
                         if st.button("\U0001F44E", key=f"down_{i}", use_container_width=True):
                             log_feedback(q_text, msg["content"], "Thumbs Down")
-                            st.toast("Feedback recorded.")
+                            # Flag every source chunk from this answer in Pinecone
+                            flagged_count = 0
+                            for src in msg.get("sources", []):
+                                src_id = src.get("id", "")
+                                if src_id and flag_chunk_in_pinecone(src_id):
+                                    flagged_count += 1
+                            toast_msg = f"Feedback recorded. {flagged_count} source chunk(s) flagged for review." if flagged_count else "Feedback recorded."
+                            st.toast(toast_msg)
 
         if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-            contextual_prompt = prompt
-            if len(st.session_state.messages) > 1:
-                history_lines = [
-                    f"{m['role'].capitalize()}: {strip_html(m['content'])}"
-                    for m in st.session_state.messages[-5:-1]
-                ]
-                history_text = "\n".join(history_lines)
-                contextual_prompt = f"Previous Chat Context:\n{history_text}\n\nCurrent User Question: {prompt}"
+            # Build structured conversation history (last 4 turns = 2 Q&A pairs)
+            history_turns = []
+            past_messages = st.session_state.messages[:-1]  # exclude the current question
+            for m in past_messages[-4:]:
+                history_turns.append({"role": m["role"], "content": m["content"]})
+
+            contextual_prompt = prompt  # current question only (history is passed separately)
 
             # --- STREAMING: Simple inline bubble, page fades in after done ---
             stream_placeholder = st.empty()
             streamed_text = ""
             result = None
 
-            for event_type, event_value in ask_ai_stream(contextual_prompt, require_logic=transparency_mode):
+            for event_type, event_value in ask_ai_stream(contextual_prompt, require_logic=transparency_mode, history=history_turns):
                 if event_type == "token":
                     streamed_text += event_value
                     display_text = re.split(r'LOGIC:', streamed_text)[0]
@@ -1196,6 +1278,22 @@ with chat_col:
             )
             formatted_answer = re.sub(r"\[(.*?)\]", r"<span style='font-weight: 700;'>[\1]</span>", result["answer"])
 
+            # --- PERFORMANCE FIX: Pre-compute expensive analytics fields ONCE ---
+            logic_details = extract_logic_details(logic_steps)
+            selection_reason = build_selection_reason(prompt, logic_details, len(result.get("sources", [])))
+            action_summary = build_suggested_action(formatted_answer, logic_details)
+            
+            # Pre-compute cleaner source chips
+            chip_parts = []
+            for source in result.get("sources", []):
+                sid = html.escape(source.get("id", ""))
+                confidence = source.get("score", 0)
+                conf_label = f"{confidence:.0f}%"
+                chip_parts.append(
+                    f"<span class='source-chip'>{sid}<span class='chip-score'>{conf_label}</span></span>"
+                )
+            cached_source_chips = "".join(chip_parts)
+
             timestamp = datetime.now().strftime("%b %d, %Y - %I:%M %p")
             st.session_state.messages.append(
                 {
@@ -1205,6 +1303,10 @@ with chat_col:
                     "logic": logic_steps,
                     "sources": result.get("sources", []),
                     "question": prompt,
+                    # Cache the expensive strings
+                    "cached_selection_reason": selection_reason,
+                    "cached_action_summary": action_summary,
+                    "cached_source_chips": cached_source_chips
                 }
             )
             st.session_state.sources = result.get("sources", [])
@@ -1246,15 +1348,26 @@ with insight_col:
     latest_user = next((m for m in reversed(st.session_state.messages) if m["role"] == "user"), None)
     latest_question = strip_html(latest_user["content"]) if latest_user else ""
     completed_question, latest_assistant = get_latest_completed_exchange(st.session_state.messages)
+    # --- PERFORMANCE FIX: Retrieve cached analytics from the message ---
     latest_answer = latest_assistant["content"] if latest_assistant else ""
     latest_logic = latest_assistant.get("logic", "") if latest_assistant else ""
-    logic_details = extract_logic_details(latest_logic)
-    action_summary = build_suggested_action(latest_answer, logic_details)
+    
+    # Use cached values if they exist, fallback to logic loop only as a safety
+    selection_reason = latest_assistant.get("cached_selection_reason", "") if latest_assistant else ""
+    action_summary = latest_assistant.get("cached_action_summary", "") if latest_assistant else ""
+    source_chips = latest_assistant.get("cached_source_chips", "") if latest_assistant else ""
+    
+    # If using older history without caching, compute once (it might still be slow)
+    if not selection_reason and latest_logic:
+        logic_details = extract_logic_details(latest_logic)
+        selection_reason = build_selection_reason(latest_question, logic_details, len(latest_assistant.get("sources", [])))
+        action_summary = build_suggested_action(latest_answer, logic_details)
+    
     has_fresh_answer = bool(latest_assistant and not is_processing and completed_question == latest_question)
-    source_list = latest_assistant.get("sources", []) if has_fresh_answer else []
     confidence_value = st.session_state.get("confidence", 100.0)
     user_queries = sum(1 for msg in st.session_state.messages if msg.get("role") == "user")
-    source_count = len(source_list) if has_fresh_answer else 0
+    source_list = latest_assistant.get("sources", []) if latest_assistant else []
+    source_count = len(source_list) if latest_assistant else 0
 
     if confidence_value >= 80:
         confidence_label = "High"
@@ -1291,13 +1404,8 @@ with insight_col:
             unsafe_allow_html=True,
         )
 
-        # --- FIX: Wrapped all insight boxes in an insight-group to match Figma list style ---
+        # --- PERFORMANCE FIX: Use cached analytics in the rendering block ---
         if latest_user and has_fresh_answer:
-            selection_reason = build_selection_reason(latest_question, logic_details, source_count)
-            source_chips = "".join(
-                f"<span class='source-chip'>{html.escape(source['id'])}</span>"
-                for source in source_list
-            )
             if not source_chips:
                 source_chips = f"<span style='color:{text_secondary};'>Sources will appear after a question is asked.</span>"
 
@@ -1316,9 +1424,7 @@ with insight_col:
                     </div>
                     <div class="insight-box">
                         <div class="insight-box-header">Suggested Action</div>
-                        <div class="insight-box-body">
-                            {html.escape(action_summary)}
-                        </div>
+                        <div class="insight-box-body">{html.escape(action_summary).replace("\n", "<br>")}</div>
                     </div>
                     <div class="insight-box">
                         <div class="insight-box-header">Supporting Sources</div>

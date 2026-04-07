@@ -2,9 +2,16 @@
 # Run this script in your terminal: python benchmark.py
 # It will test the RAG pipeline and generate an evaluation_report.csv
 
+import os
 import csv
+import re
 from datetime import datetime
 from rag_pipeline import ask_ai
+
+# --- CONFIGURATION: Define benchmark run version here ---
+version = "3.5"  # Current Release
+run_notes = "Full evaluation with dual-pass verification loop and 0.0 temperature." 
+csv_filename = f"benchmark_run_v{version.replace('.', '_')}_{datetime.now().strftime('%Y%H%M')}.csv"
 
 # Industry-standard test questions based on client minutes + CI Hub Analytics Library
 TEST_QUESTIONS = [
@@ -132,11 +139,6 @@ def run_evaluation():
     # Calculate Average Confidence
     avg_confidence = 0
     if results:
-        total_conf = sum(float(r["Confidence Score"].replace("%", "")) for r in results)
-        avg_confidence = total_conf / len(results)
-    # Calculate Average Confidence for Summary
-    avg_confidence = 0
-    if results:
         # We use a clean results list (excluding the summary row if it was added)
         numeric_results = [r for r in results if r["Timestamp"] != "SUMMARY"]
         total_conf = sum(float(r["Confidence Score"].replace("%", "")) for r in numeric_results)
@@ -162,44 +164,153 @@ def run_evaluation():
     # Auto-append to Combined_Benchmark_Results.xlsx using PowerShell COM automation
     excel_file = os.path.abspath("Combined_Benchmark_Results.xlsx")
     csv_abs_path = os.path.abspath(csv_filename)
-    # The user specifed "Google Antigravity #" naming convention
-    sheet_name = f"Google Antigravity {version}"
     
     if os.path.exists(excel_file):
-        print(f"🔄 Appending {sheet_name} to the Master Excel workbook...")
-        ps_script = f"""
+        print(f"🔄 Appending newest run to the Master Excel workbook...")
+        logo_path = os.path.abspath("reportingxpresslogo.jpg")
+        
+        # Build the script with string replacement to avoid f-string / brace madness
+        ps_script_template = r"""
         $ErrorActionPreference = "Stop"
         $excel = New-Object -ComObject Excel.Application
         $excel.Visible = $false
         $excel.DisplayAlerts = $false
-        try {{
-            $targetWb = $excel.Workbooks.Open('{excel_file}')
-            $sourceWb = $excel.Workbooks.Open('{csv_abs_path}')
-            $sourceSheet = $sourceWb.Sheets.Item(1)
-            $lastSheet = $targetWb.Sheets.Item($targetWb.Sheets.Count)
-            $sourceSheet.Copy([System.Reflection.Missing]::Value, $lastSheet)
-            $newSheet = $targetWb.Sheets.Item($targetWb.Sheets.Count)
-            $newSheet.Name = '{sheet_name}'
+        try {
+            $targetWb = $excel.Workbooks.Open('__EXCEL_FILE__')
+            $sourceWb = $excel.Workbooks.Open('__CSV_FILE__')
             
-            # Place the Average Confidence in Cell H1
-            $newSheet.Cells.Item(1, 8).Value = 'Average Confidence: {avg_confidence:.2f}%'
+            # 1. Determine Sequential Name
+            $nextNum = 1
+            foreach ($s in $targetWb.Sheets) {
+                if ($s.Name -match "Google Antigravity [Uu]pdate (\d+)") {
+                    $num = [int]$matches[1]
+                    if ($num -ge $nextNum) { $nextNum = $num + 1 }
+                }
+            }
+            $sheet_name = "Google Antigravity update $nextNum"
+            Write-Host "Determined New Sheet Name: $sheet_name"
+
+            # 2. Copy New Sheet to the FAR RIGHT
+            $sourceSheet = $sourceWb.Sheets.Item(1)
+            $lastSheet = $targetWb.Sheets.Item([int]$targetWb.Sheets.Count)
+            $sourceSheet.Copy([System.Reflection.Missing]::Value, $lastSheet) | Out-Null
+            $newSheet = $targetWb.Sheets.Item([int]$targetWb.Sheets.Count)
+            $newSheet.Name = $sheet_name.ToString()
+            
+            # --- LIVE FORMULA UPGRADE: Individual Sheet ---
+            $newSheet.Cells.Item(1, 7).Value2 = "__RUN_NOTES__" # Population of G1
+            $lastR = [int]$newSheet.UsedRange.Rows.Count
+            $newSheet.Cells.Item(1, 8).Formula = "=AVERAGE(C2:C$lastR)" # Population of H1
+            $newSheet.Cells.Item(1, 8).NumberFormat = "0.0%"
             $newSheet.Cells.Item(1, 8).Font.Bold = $true
             
             $sourceWb.Close($false)
+
+            # 3. Build/Refresh "Benchmark Summary" Dashboard (FAR LEFT)
+            $summaryName = "Benchmark Summary"
+            $summarySheet = $null
+            foreach ($s in $targetWb.Sheets) {
+                if ($s.Name -eq $summaryName) { $summarySheet = $s; break }
+            }
+            if (-not $summarySheet) {
+                $summarySheet = $targetWb.Sheets.Add($targetWb.Sheets.Item(1))
+                $summarySheet.Name = $summaryName.ToString()
+            }
+            $summarySheet.Move($targetWb.Sheets.Item(1)) | Out-Null
+            $summarySheet.Cells.Clear() 
+
+            # Dashboard Styling & Branding
+            $summarySheet.Tab.ColorIndex = 37 # Light Blue tab
+            
+            # Insert Logo
+            $logo = '__LOGO_PATH__'
+            if (Test-Path $logo) {
+                $shape = $summarySheet.Shapes.AddPicture($logo, $false, $true, 5, 5, 120, 60)
+            }
+            
+            $summarySheet.Cells.Item(2, 3).Value2 = "📊 Reporting Xpress: RAG Performance Dashboard"
+            $summarySheet.Cells.Item(2, 3).Font.Size = 18
+            $summarySheet.Cells.Item(2, 3).Font.Bold = $true
+            $summarySheet.Cells.Item(2, 3).Font.ColorIndex = 11 # Dark Blue
+
+            $headers = @("Benchmark Version", "Avg Confidence Score", "Questions Tested", "Log Timestamp", "Notes")
+            for ($i=0; $i -lt $headers.Count; $i++) {
+                $cell = $summarySheet.Cells.Item(5, [int]($i+1))
+                $cell.Value2 = $headers[$i].ToString()
+                $cell.Font.Bold = $true
+                $cell.Interior.ColorIndex = 11 # Dark Blue
+                $cell.Font.ColorIndex = 2 # White
+                $cell.HorizontalAlignment = -4108 # Center
+            }
+
+            # Rebuild Summary Table (5 Columns)
+            $rowIdx = 6
+            $processedSheets = New-Object System.Collections.Generic.HashSet[string]
+            foreach ($sheet in $targetWb.Sheets) {
+                $name = $sheet.Name.ToString()
+                if ($name -ne $summaryName -and -not $processedSheets.Contains($name)) {
+                    $processedSheets.Add($name) | Out-Null
+                    $lastRow = [int]$sheet.UsedRange.Rows.Count
+                    $count = 0
+                    $timestamp = ""
+                    $sheetNote = $sheet.Cells.Item(1, 7).Text # Pull from G1
+
+                    for ($r=2; $r -le $lastRow; $r++) {
+                        $tag = $sheet.Cells.Item([int]$r, 1).Value2
+                        if ($tag -ne "SUMMARY" -and $tag -ne $null) {
+                            $count++
+                            if ($timestamp -eq "") { $timestamp = $sheet.Cells.Item([int]$r, 1).Value2.ToString() }
+                        }
+                    }
+                    
+                    $summarySheet.Cells.Item([int]$rowIdx, 1).Value2 = $name
+                    $summarySheet.Cells.Item([int]$rowIdx, 2).Formula = "='" + $name + "'!`$H`$1"
+                    $summarySheet.Cells.Item([int]$rowIdx, 2).NumberFormat = "0.0%"
+                    $summarySheet.Cells.Item([int]$rowIdx, 3).Value2 = [int]$count
+                    $summarySheet.Cells.Item([int]$rowIdx, 4).Value2 = $timestamp.ToString()
+                    $summarySheet.Cells.Item([int]$rowIdx, 5).Value2 = $sheetNote.ToString() # New 5th column
+                    
+                    if ($rowIdx % 2 -eq 0) { $summarySheet.Range("A$rowIdx:E$rowIdx").Interior.ColorIndex = 34 }
+                    $rowIdx++
+                }
+            }
+            $summarySheet.Columns.AutoFit()
+
+            # Dynamic Trend Chart
+            if ($rowIdx -gt 6) {
+                $chartRange = $summarySheet.Range("A5:B" + [int]($rowIdx - 1))
+                $chartObj = $summarySheet.ChartObjects().Add(450, 80, 600, 350)
+                $chart = $chartObj.Chart
+                $chart.SetSourceData($chartRange)
+                $chart.ChartType = 65 # xlLineMarkers
+                $chart.HasTitle = $true
+                $chart.ChartTitle.Text = "RAG Confidence Progression"
+                $chart.Axes(1, 1).HasTitle = $true 
+                $chart.Axes(1, 1).AxisTitle.Text = "Benchmark Version"
+                $chart.Axes(2, 1).HasTitle = $true 
+                $chart.Axes(2, 1).AxisTitle.Text = "Avg Confidence %"
+                $chart.Axes(2, 1).MinimumScale = 0
+                $chart.Axes(2, 1).MaximumScale = 100
+            }
+
             $targetWb.Save()
             Write-Host "Success"
-        }} catch {{
-            Write-Host "Excel Append Error: $_"
-        }} finally {{
-            if ($targetWb) {{ $targetWb.Close($false) }}
+        } catch {
+            Write-Host "Excel Error: $_"
+        } finally {
+            if ($targetWb) { $targetWb.Close($false) }
             $excel.Quit()
             [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
-        }}
+        }
         """
+        ps_script = ps_script_template.replace("__EXCEL_FILE__", excel_file).replace("__CSV_FILE__", csv_abs_path).replace("__LOGO_PATH__", logo_path).replace("__RUN_NOTES__", run_notes)
         import subprocess
         result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True)
         if "Success" in result.stdout:
-            print(f"✅ Successfully appended to {os.path.basename(excel_file)} as tab '{sheet_name}'!")
+            # Extract sheet name from PowerShell output if possible
+            match = re.search(r"Determined New Sheet Name: (.*)", result.stdout)
+            result_sheet = match.group(1).strip() if match else "New Update"
+            print(f"✅ Successfully appended to {os.path.basename(excel_file)} as tab '{result_sheet}'!")
             # Cleanup: Delete the CSV after successful merge as requested
             try:
                 os.remove(csv_filename)

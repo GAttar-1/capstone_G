@@ -402,31 +402,35 @@ st.markdown(
     }}
 
     /* THE REFINED NAVIGATION FIX: Targeted strictly for sidebar navigation arrows */
-    button[aria-label*="sidebar"],
-    button[data-testid*="SidebarTrigger"],
-    [data-testid*="stSidebarCollapseButton"],
-    [data-testid*="stExpandSidebarButton"] {{
-        z-index: 9999999 !important; /* Ensure it's above the header block */
-        pointer-events: auto !important;
-        cursor: pointer !important;
-    }}
-
-    button[aria-label*="sidebar"] span,
-    button[data-testid*="Sidebar"] span,
-    button[data-testid*="stSidebarCollapse"] span,
-    button[data-testid*="stExpandSidebar"] span {{
-        font-size: 47px !important; /* Extremely prominent */
+    /* THE UNBREAKABLE NAVIGATION FIX: High-coverage visibility for both local and cloud hosted versions */
+    [data-testid*="Sidebar"] span,
+    [data-testid*="SidebarTrigger"] span,
+    [data-testid*="stExpandSidebar"] span,
+    [data-testid*="stSidebarCollapse"] span,
+    button[aria-label*="sidebar"] *,
+    button[aria-label*="Expand"] *,
+    button[aria-label*="Collapse"] * {{
+        font-size: 44px !important; /* Branded visibility */
         color: #0a5fd8 !important;   /* Reporting Xpress Blue */
         fill: #0a5fd8 !important;
         font-weight: 900 !important;
-        line-height: 1 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: transform 0.2s ease !important;
     }}
 
-    /* Lowering header layer to avoid blocking clicks */
+    /* Ensuring the header height doesn't clip the new larger icons */
     [data-testid="stHeader"], header {{
-        height: 54px !important;
+        height: 62px !important;
         background: transparent !important;
-        z-index: 999 !important; /* Lower than the sidebar button */
+        z-index: 100 !important; /* Low layer to allow clicks on top-layer buttons */
+    }}
+
+    /* Global z-index boost for any navigation button to ensure clickability */
+    button[data-testid*="Sidebar"], button[aria-label*="sidebar"] {{
+        z-index: 9999999 !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
     }}
 
     /* Permanent fix for obstructing tooltip */

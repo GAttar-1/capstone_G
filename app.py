@@ -402,8 +402,9 @@ st.markdown(
     }}
 
     [data-testid="stHeader"] {{
-        height: 0px !important;
+        height: 52px !important;
         background: transparent !important;
+        z-index: 9999 !important;
     }}
 
     /* Permanent fix for obstructing tooltip */
@@ -411,18 +412,25 @@ st.markdown(
         display: none !important;
     }}
 
-    /* FINAL UI UPGRADE: High-Visibility Sidebar Toggle Arrow (Rex Menu) */
+    /* FINAL UI UPGRADE: Universal High-Visibility Sidebar Toggle Arrow */
+    [data-testid="stSidebarTrigger"] span,
     [data-testid="stExpandSidebarButton"] span,
-    [data-testid="stSidebarCollapseButton"] span {{
-        font-size: 42px !important; /* Make it significantly larger */
+    [data-testid="stSidebarCollapseButton"] span,
+    [data-testid="stBaseButton-headerNoPadding"] span,
+    button[aria-label="Open sidebar"] span,
+    button[aria-label="Close sidebar"] span {{
+        font-size: 40px !important; /* Extremely visible */
         color: #0a5fd8 !important;   /* Reporting Xpress Blue */
         font-weight: 900 !important;
+        line-height: 1 !important;
         transition: transform 0.2s ease, color 0.2s ease !important;
     }}
 
+    /* Hover effect for immediate feedback */
+    [data-testid="stSidebarTrigger"]:hover span,
     [data-testid="stExpandSidebarButton"]:hover span,
     [data-testid="stSidebarCollapseButton"]:hover span {{
-        transform: scale(1.2) !important;
+        transform: scale(1.15) !important;
         color: #004a99 !important;
     }}
 

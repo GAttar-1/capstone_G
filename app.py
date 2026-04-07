@@ -402,6 +402,15 @@ st.markdown(
     }}
 
     /* THE REFINED NAVIGATION FIX: Targeted strictly for sidebar navigation arrows */
+    button[aria-label*="sidebar"],
+    button[data-testid*="SidebarTrigger"],
+    [data-testid*="stSidebarCollapseButton"],
+    [data-testid*="stExpandSidebarButton"] {{
+        z-index: 9999999 !important; /* Ensure it's above the header block */
+        pointer-events: auto !important;
+        cursor: pointer !important;
+    }}
+
     button[aria-label*="sidebar"] span,
     button[data-testid*="Sidebar"] span,
     button[data-testid*="stSidebarCollapse"] span,
@@ -411,16 +420,13 @@ st.markdown(
         fill: #0a5fd8 !important;
         font-weight: 900 !important;
         line-height: 1 !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        transition: transform 0.2s ease, color 0.2s ease !important;
     }}
 
-    /* Ensuring the header height is sufficient for the Cloud wrapper */
+    /* Lowering header layer to avoid blocking clicks */
     [data-testid="stHeader"], header {{
-        height: 58px !important;
+        height: 54px !important;
         background: transparent !important;
-        z-index: 999999 !important;
+        z-index: 999 !important; /* Lower than the sidebar button */
     }}
 
     /* Permanent fix for obstructing tooltip */

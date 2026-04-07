@@ -6,7 +6,6 @@ import os
 import re
 import time
 from datetime import datetime
-import streamlit.components.v1 as components
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -20,11 +19,35 @@ st.set_page_config(
 
 from rag_pipeline import ask_ai, ask_ai_stream, flag_chunk_in_pinecone
 
-# SEO and Accessibility Meta-Tag Injection
+# Optimized UI and Branding (Static CSS for Performance)
 st.markdown(
     """
-    <meta name="description" content="Reporting Xpress AI Fundraising Assistant - Optimize your fundraising strategy with AI-powered metrics and data-driven insights.">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+    <style>
+    /* High-Performance Rex Blue Branding */
+    [data-testid="stSidebarCollapse"] svg path, 
+    [data-testid="stSidebarTrigger"] svg path {
+        fill: #0a5fd8 !important;
+    }
+    [data-testid="stSidebarCollapse"] svg,
+    [data-testid="stSidebarTrigger"] svg {
+        width: 32px !important;
+        height: 32px !important;
+        transform: scale(1.2) !important;
+    }
+    
+    /* Accessibility skip link */
+    .skip-link {
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: #0a5fd8;
+        color: white;
+        padding: 8px;
+        z-index: 100;
+        transition: top 0.3s;
+    }
+    .skip-link:focus { top: 0; }
+    </style>
     """,
     unsafe_allow_html=True
 )
@@ -1559,7 +1582,11 @@ with insight_col:
 import streamlit.components.v1 as components
 components.html("""
     <script>
-    setInterval(function() {
+    let optimizationCount = 0;
+    const pulseLimit = 50; // Stop after 5 seconds (50 * 100ms)
+    
+    const optimizer = setInterval(function() {
+        optimizationCount++;
         [window, window.parent].forEach(win => {
             try {
                 // 1. Force SEO & Scaling into Head
@@ -1571,11 +1598,15 @@ components.html("""
                     head.appendChild(m);
                 }
                 let v = win.document.querySelector('meta[name="viewport"]');
-                if (v) v.content = "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes";
+                if (v && !v.content.includes('user-scalable=yes')) {
+                    v.content = "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes";
+                }
 
                 // 2. Lock Landmarks
                 let main = win.document.querySelector('section.main') || win.document.querySelector('.main') || win.document.querySelector('[data-testid="stAppViewContainer"]');
-                if (main) main.setAttribute('role', 'main');
+                if (main && !main.getAttribute('role')) {
+                    main.setAttribute('role', 'main');
+                }
 
                 // 3. Name Anonymous Buttons
                 win.document.querySelectorAll('button').forEach(btn => {
@@ -1583,20 +1614,13 @@ components.html("""
                         btn.setAttribute('aria-label', 'Toggle Navigation');
                     }
                 });
-
-                // 4. Rex Blue Branding
-                let svgPath = "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z";
-                win.document.querySelectorAll('path').forEach(p => {
-                    if (p.getAttribute('d') === svgPath) {
-                        let s = p.parentElement;
-                        s.style.fill = '#0a5fd8';
-                        s.style.width = '48px';
-                        s.style.height = '48px';
-                        s.style.transform = 'scale(1.5)';
-                    }
-                });
             } catch (e) {}
         });
+        
+        // Performance: Stop the pulse once landmarks are likely locked (5 seconds)
+        if (optimizationCount > pulseLimit) {
+            clearInterval(optimizer);
+        }
     }, 100);
     </script>
 """, height=0)

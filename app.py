@@ -402,34 +402,30 @@ st.markdown(
     }}
 
     /* THE REFINED NAVIGATION FIX: Targeted strictly for sidebar navigation arrows */
-    /* THE ULTIMATE NAVIGATION FIX: Targeted for both Local and Cloud Hosted environments */
-    button[aria-label*="sidebar"] span,
-    button[data-testid*="sidebar"] span,
-    button[data-testid*="Sidebar"] span,
-    button[data-testid*="stBaseButton-header"] span,
-    [data-testid="stSidebarTrigger"] span,
-    button[aria-label*="sidebar"] i,
-    button[data-testid*="sidebar"] i {{
-        font-size: 42px !important; /* Extremely high visibility */
+    /* THE POSITIONAL OVERRIDE: Targets the top-left navigation strictly by its location in the app structure */
+    div[data-testid="stAppViewContainer"] > button:first-of-type span,
+    div[data-testid="stAppViewContainer"] > section + div button span,
+    [data-testid="stHeader"] button[aria-label*="sidebar"] span {{
+        font-size: 48px !important; /* Branded visibility */
         color: #0a5fd8 !important;   /* Reporting Xpress Blue */
         fill: #0a5fd8 !important;
         font-weight: 900 !important;
         visibility: visible !important;
-        line-height: 1 !important;
     }}
 
     /* Global z-index boost for navigation toggle only */
-    button[data-testid*="sidebar"], 
-    button[aria-label*="sidebar"],
+    div[data-testid="stAppViewContainer"] > button:first-of-type,
     [data-testid="stSidebarTrigger"] {{
         z-index: 9999999 !important;
         pointer-events: auto !important;
         cursor: pointer !important;
+        top: 10px !important;
+        left: 10px !important;
     }}
 
     /* Essential header height to prevent arrow clipping */
     [data-testid="stHeader"], header {{
-        height: 56px !important;
+        height: 60px !important;
         background: transparent !important;
         z-index: 100 !important;
     }}

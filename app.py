@@ -402,29 +402,34 @@ st.markdown(
     }}
 
     /* THE REFINED NAVIGATION FIX: Targeted strictly for sidebar navigation arrows */
-    /* THE SURGICAL NAVIGATION FIX: Ensuring only the arrow icons are branded blue and large */
-    button[data-testid="stExpandSidebarButton"] span, 
-    button[data-testid="stSidebarCollapseButton"] span,
-    button[aria-label="Open sidebar"] span,
-    button[aria-label="Close sidebar"] span {{
-        font-size: 38px !important; /* Branded visibility for arrows only */
+    /* THE ULTIMATE NAVIGATION FIX: Targeted for both Local and Cloud Hosted environments */
+    button[aria-label*="sidebar"] span,
+    button[data-testid*="sidebar"] span,
+    button[data-testid*="Sidebar"] span,
+    button[data-testid*="stBaseButton-header"] span,
+    [data-testid="stSidebarTrigger"] span,
+    button[aria-label*="sidebar"] i,
+    button[data-testid*="sidebar"] i {{
+        font-size: 42px !important; /* Extremely high visibility */
         color: #0a5fd8 !important;   /* Reporting Xpress Blue */
         fill: #0a5fd8 !important;
         font-weight: 900 !important;
         visibility: visible !important;
+        line-height: 1 !important;
     }}
 
-    /* Global z-index boost for navigation buttons to ensure clickability */
-    button[data-testid*="SidebarButton"], 
-    button[aria-label="Open sidebar"], 
-    button[aria-label="Close sidebar"] {{
+    /* Global z-index boost for navigation toggle only */
+    button[data-testid*="sidebar"], 
+    button[aria-label*="sidebar"],
+    [data-testid="stSidebarTrigger"] {{
         z-index: 9999999 !important;
         pointer-events: auto !important;
+        cursor: pointer !important;
     }}
 
-    /* Ensuring the header height doesn't clip the new larger icons */
+    /* Essential header height to prevent arrow clipping */
     [data-testid="stHeader"], header {{
-        height: 54px !important;
+        height: 56px !important;
         background: transparent !important;
         z-index: 100 !important;
     }}

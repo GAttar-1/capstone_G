@@ -401,29 +401,34 @@ st.markdown(
         max-width: 1440px !important;
     }}
 
-    [data-testid="stHeader"] {{
-        height: 52px !important;
+    /* THE NUCLEAR NAVIGATION FIX: Targeted specifically for Cloud-hosted Streamlit production layers */
+    [data-testid="stHeader"] button:first-of-type span,
+    [data-testid="stHeader"] button span,
+    [data-testid="stSidebarTrigger"] span,
+    [data-testid="stExpandSidebarButton"] span,
+    [data-testid="stSidebarCollapseButton"] span,
+    [data-testid="stBaseButton-headerNoPadding"] span,
+    button[aria-label*="sidebar"] span {{
+        font-size: 46px !important; /* Extremely prominent */
+        color: #0a5fd8 !important;   /* Reporting Xpress Blue */
+        fill: #0a5fd8 !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        transition: transform 0.2s ease, color 0.2s ease !important;
+    }}
+
+    /* Ensuring the header height is sufficient for the Cloud wrapper */
+    [data-testid="stHeader"], header {{
+        height: 56px !important;
         background: transparent !important;
-        z-index: 9999 !important;
+        z-index: 999999 !important;
     }}
 
     /* Permanent fix for obstructing tooltip */
     [data-testid="stInstructions"] {{
         display: none !important;
-    }}
-
-    /* FINAL UI UPGRADE: Universal High-Visibility Sidebar Toggle Arrow */
-    [data-testid="stSidebarTrigger"] span,
-    [data-testid="stExpandSidebarButton"] span,
-    [data-testid="stSidebarCollapseButton"] span,
-    [data-testid="stBaseButton-headerNoPadding"] span,
-    button[aria-label="Open sidebar"] span,
-    button[aria-label="Close sidebar"] span {{
-        font-size: 40px !important; /* Extremely visible */
-        color: #0a5fd8 !important;   /* Reporting Xpress Blue */
-        font-weight: 900 !important;
-        line-height: 1 !important;
-        transition: transform 0.2s ease, color 0.2s ease !important;
     }}
 
     /* Hover effect for immediate feedback */

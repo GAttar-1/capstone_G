@@ -372,7 +372,7 @@ def get_base64_image(image_path):
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-logo_path = os.path.join(current_dir, "reportingxpresslogo.jpg")
+logo_path = os.path.join(current_dir, "assets", "logo.jpg")
 logo_base64 = get_base64_image(logo_path)
 
 if logo_base64:

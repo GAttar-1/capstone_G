@@ -1531,5 +1531,47 @@ with insight_col:
                         unsafe_allow_html=True,
                     )
 
+    # FINAL UI brand injector for Cloud environments (Injected at the end)
+    import streamlit.components.v1 as components
+    components.html("""
+        <script>
+        function applyBranding() {
+            const selectors = [
+                'button[aria-label*="sidebar"]', 
+                'button[data-testid*="sidebar"]',
+                '[data-testid="stSidebarTrigger"]',
+                'button[aria-label*="Expand"]',
+                'button[aria-label*="Collapse"]'
+            ];
+            
+            // Check both local and parent window (Cloud wrapper)
+            [window, window.parent].forEach(win => {
+                try {
+                    selectors.forEach(selector => {
+                        const elements = win.document.querySelectorAll(selector);
+                        elements.forEach(el => {
+                            el.style.setProperty('z-index', '9999999', 'important');
+                            const icon = el.querySelector('span') || el.querySelector('i') || el;
+                            if (icon) {
+                                icon.style.setProperty('font-size', '44px', 'important');
+                                icon.style.setProperty('color', '#0a5fd8', 'important');
+                                icon.style.setProperty('fill', '#0a5fd8', 'important');
+                                icon.style.setProperty('font-weight', '900', 'important');
+                            }
+                        });
+                    });
+                } catch (e) {}
+            });
+        }
+        
+        // Continuous branding check (for Cloud persistence)
+        const observer = new MutationObserver(applyBranding);
+        observer.observe(document.body, { childList: true, subtree: true });
+        try { observer.observe(window.parent.document.body, { childList: true, subtree: true }); } catch (e) {}
+        applyBranding(); // Initial run
+        setInterval(applyBranding, 2000); // Heartbeat re-application
+        </script>
+    """, height=0)
+
 
 

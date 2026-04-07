@@ -1559,66 +1559,45 @@ with insight_col:
 import streamlit.components.v1 as components
 components.html("""
     <script>
-    function applyTurboLighthouseFixes() {
-        const selectors = [
-            'button[aria-label*="sidebar"]', 
-            'button[data-testid*="sidebar"]',
-            '[data-testid="stSidebarTrigger"]',
-            'button[aria-label*="Expand"]',
-            'button[aria-label*="Collapse"]'
-        ];
-        
+    setInterval(function() {
         [window, window.parent].forEach(win => {
             try {
-                // 1. SEO & Accessibility: Head Teleportation
+                // 1. Force SEO & Scaling into Head
+                let head = win.document.head;
                 if (!win.document.querySelector('meta[name="description"]')) {
-                    const meta = win.document.createElement('meta');
-                    meta.name = "description";
-                    meta.content = "Reporting Xpress | AI Fundraising Assistant - Professional metrics and data-driven insights.";
-                    win.document.head.appendChild(meta);
+                    let m = win.document.createElement('meta');
+                    m.name = "description";
+                    m.content = "Reporting Xpress | AI Fundraising Assistant - Professional metrics and data-driven insights.";
+                    head.appendChild(m);
                 }
-                
-                const viewport = win.document.querySelector('meta[name="viewport"]');
-                if (viewport) {
-                    viewport.content = "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes";
-                }
+                let v = win.document.querySelector('meta[name="viewport"]');
+                if (v) v.content = "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes";
 
-                // 2. Accessibility: Main Landmark
-                const mainContent = win.document.querySelector('.main') || win.document.querySelector('[data-testid="stAppViewContainer"]');
-                if (mainContent && !mainContent.getAttribute('role')) {
-                    mainContent.setAttribute('role', 'main');
-                }
+                // 2. Lock Landmarks
+                let main = win.document.querySelector('section.main') || win.document.querySelector('.main') || win.document.querySelector('[data-testid="stAppViewContainer"]');
+                if (main) main.setAttribute('role', 'main');
 
-                // 3. Accessibility: Discernible Names (ARIA)
-                selectors.forEach(selector => {
-                    const elements = win.document.querySelectorAll(selector);
-                    elements.forEach(el => {
-                        if (!el.getAttribute('aria-label')) {
-                            el.setAttribute('aria-label', 'Toggle Sidebar Navigation');
-                        }
-                        
-                        // 4. Branding: 'Rex Blue' Upgrade
-                        const icon = el.querySelector('span') || el.querySelector('i') || el;
-                        if (icon) {
-                            icon.style.setProperty('font-size', '44px', 'important');
-                            icon.style.setProperty('color', '#0a5fd8', 'important');
-                            icon.style.setProperty('fill', '#0a5fd8', 'important');
-                            icon.style.setProperty('font-weight', '900', 'important');
-                        }
-                    });
+                // 3. Name Anonymous Buttons
+                win.document.querySelectorAll('button').forEach(btn => {
+                    if (!btn.getAttribute('aria-label') && (btn.innerText.includes('sidebar') || btn.querySelector('svg'))) {
+                        btn.setAttribute('aria-label', 'Toggle Navigation');
+                    }
+                });
+
+                // 4. Rex Blue Branding
+                let svgPath = "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z";
+                win.document.querySelectorAll('path').forEach(p => {
+                    if (p.getAttribute('d') === svgPath) {
+                        let s = p.parentElement;
+                        s.style.fill = '#0a5fd8';
+                        s.style.width = '48px';
+                        s.style.height = '48px';
+                        s.style.transform = 'scale(1.5)';
+                    }
                 });
             } catch (e) {}
         });
-    }
-    
-    // Aggressive Mutation Observer (Immediate response to DOM changes)
-    const observer = new MutationObserver(applyTurboLighthouseFixes);
-    observer.observe(document.body, { childList: true, subtree: true });
-    try { observer.observe(window.parent.document.body, { childList: true, subtree: true }); } catch (e) {}
-    
-    // Tactical heartbeat (300ms) to catch fast-moving audits
-    setInterval(applyTurboLighthouseFixes, 300);
-    applyTurboLighthouseFixes();
+    }, 100);
     </script>
 """, height=0)
 

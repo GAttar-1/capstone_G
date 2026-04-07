@@ -13,7 +13,21 @@ import streamlit.components.v1 as components
 
 from rag_pipeline import ask_ai, ask_ai_stream, flag_chunk_in_pinecone
 
-st.set_page_config(layout="wide", page_title="Reporting Xpress", initial_sidebar_state="collapsed")
+st.set_page_config(
+    layout="wide", 
+    page_title="Reporting Xpress | AI Fundraising Assistant", 
+    page_icon="🎨", 
+    initial_sidebar_state="collapsed"
+)
+
+# SEO and Accessibility Meta-Tag Injection
+st.markdown(
+    """
+    <meta name="description" content="Reporting Xpress AI Fundraising Assistant - Optimize your fundraising strategy with AI-powered metrics and data-driven insights.">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes">
+    """,
+    unsafe_allow_html=True
+)
 
 def check_password():
     """Returns `True` if the user had the correct password."""
@@ -1552,10 +1566,22 @@ with insight_col:
             // Check both local and parent window (Cloud wrapper)
             [window, window.parent].forEach(win => {
                 try {
+                    // Accessibility: Designate the main content area
+                    const mainContent = win.document.querySelector('.main') || win.document.querySelector('[data-testid="stAppViewContainer"]');
+                    if (mainContent && !mainContent.getAttribute('role')) {
+                        mainContent.setAttribute('role', 'main');
+                    }
+
                     selectors.forEach(selector => {
                         const elements = win.document.querySelectorAll(selector);
                         elements.forEach(el => {
                             el.style.setProperty('z-index', '9999999', 'important');
+                            
+                            // Accessibility: Ensure discernible names for buttons
+                            if (!el.getAttribute('aria-label')) {
+                                el.setAttribute('aria-label', 'Toggle Sidebar Navigation');
+                            }
+
                             const icon = el.querySelector('span') || el.querySelector('i') || el;
                             if (icon) {
                                 icon.style.setProperty('font-size', '44px', 'important');

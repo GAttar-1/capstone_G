@@ -8,11 +8,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize clients
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+import streamlit as st
 
-index = pc.Index("officialreportingxpress")
+# Initialize clients with caching for performance boost
+@st.cache_resource
+def get_pinecone_index():
+    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+    return pc.Index("officialreportingxpress")
+
+@st.cache_resource
+def get_openai_client():
+    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+openai_client = get_openai_client()
+index = get_pinecone_index()
 
 # Set this to False to instantly revert to raw, fast searching without LLM intervention
 USE_HYDE = True
@@ -36,6 +45,7 @@ def flag_chunk_in_pinecone(chunk_id: str):
         print(f"[Pinecone flag error] {chunk_id}: {e}")
         return False
 
+@st.cache_data(show_spinner=False)
 def transform_query(question):
     """
     Asks the LLM to generate a hypothetical 'perfect technical description' 

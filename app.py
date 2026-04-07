@@ -402,35 +402,31 @@ st.markdown(
     }}
 
     /* THE REFINED NAVIGATION FIX: Targeted strictly for sidebar navigation arrows */
-    /* THE UNBREAKABLE NAVIGATION FIX: High-coverage visibility for both local and cloud hosted versions */
-    [data-testid*="Sidebar"] span,
-    [data-testid*="SidebarTrigger"] span,
-    [data-testid*="stExpandSidebar"] span,
-    [data-testid*="stSidebarCollapse"] span,
-    button[aria-label*="sidebar"] *,
-    button[aria-label*="Expand"] *,
-    button[aria-label*="Collapse"] * {{
-        font-size: 44px !important; /* Branded visibility */
+    /* THE SURGICAL NAVIGATION FIX: Ensuring only the arrow icons are branded blue and large */
+    button[data-testid="stExpandSidebarButton"] span, 
+    button[data-testid="stSidebarCollapseButton"] span,
+    button[aria-label="Open sidebar"] span,
+    button[aria-label="Close sidebar"] span {{
+        font-size: 38px !important; /* Branded visibility for arrows only */
         color: #0a5fd8 !important;   /* Reporting Xpress Blue */
         fill: #0a5fd8 !important;
         font-weight: 900 !important;
-        opacity: 1 !important;
         visibility: visible !important;
-        transition: transform 0.2s ease !important;
+    }}
+
+    /* Global z-index boost for navigation buttons to ensure clickability */
+    button[data-testid*="SidebarButton"], 
+    button[aria-label="Open sidebar"], 
+    button[aria-label="Close sidebar"] {{
+        z-index: 9999999 !important;
+        pointer-events: auto !important;
     }}
 
     /* Ensuring the header height doesn't clip the new larger icons */
     [data-testid="stHeader"], header {{
-        height: 62px !important;
+        height: 54px !important;
         background: transparent !important;
-        z-index: 100 !important; /* Low layer to allow clicks on top-layer buttons */
-    }}
-
-    /* Global z-index boost for any navigation button to ensure clickability */
-    button[data-testid*="Sidebar"], button[aria-label*="sidebar"] {{
-        z-index: 9999999 !important;
-        pointer-events: auto !important;
-        cursor: pointer !important;
+        z-index: 100 !important;
     }}
 
     /* Permanent fix for obstructing tooltip */

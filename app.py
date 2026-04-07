@@ -401,40 +401,26 @@ st.markdown(
         max-width: 1440px !important;
     }}
 
-    /* THE TEXT LABEL: Adding 'Open Side Menu' next to the arrow */
-    button[aria-label*="Open sidebar"]::after,
-    button[data-testid*="stExpandSidebarButton"]::after {{
-        content: " Open Side Menu";
-        font-size: 26px !important;
-        color: #0a5fd8 !important;
-        font-weight: 800 !important;
-        vertical-align: middle !important;
-        margin-left: 10px !important;
-        white-space: nowrap !important;
-    }}
-
-    /* THE SILVER BULLET: Targets the exact SVG path data for the chevron */
+    /* THE SILVER BULLET: Targets the exact SVG path data for the navigation chevron */
     path[d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z"],
     path[d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"] {{
         fill: #0a5fd8 !important;
     }}
 
-    /* Scale the SVG container and ensure it aligns with the text */
+    /* Scale the SVG container that holds these specific paths */
     svg:has(path[d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6-6-6z"]),
     svg:has(path[d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"]),
     [data-testid*="stSidebarTrigger"] svg {{
-        width: 44px !important;
-        height: 44px !important;
+        width: 48px !important;
+        height: 48px !important;
         color: #0a5fd8 !important;
         fill: #0a5fd8 !important;
-        display: inline-block !important;
-        vertical-align: middle !important;
     }}
 
-    /* Ensuring the sidebar trigger button area expands to fit the text */
+    /* Ensuring the sidebar trigger button area is large enough for the new icon */
     button[aria-label*="sidebar"],
     [data-testid*="stSidebarTrigger"] {{
-        width: auto !important; /* Allow expansion for text */
+        width: 60px !important;
         height: 60px !important;
         z-index: 9999999 !important;
         pointer-events: auto !important;
@@ -442,9 +428,6 @@ st.markdown(
         top: 0px !important;
         left: 0px !important;
         background: transparent !important;
-        display: flex !important;
-        align-items: center !important;
-        padding-right: 25px !important;
     }}
 
     /* Essential header height adjustment */
@@ -452,11 +435,6 @@ st.markdown(
         height: 60px !important;
         background: transparent !important;
         z-index: 100 !important;
-    }}
-
-    /* Permanent fix for obstructing tooltip */
-    [data-testid="stInstructions"] {{
-        display: none !important;
     }}
 
     /* Permanent fix for obstructing tooltip */

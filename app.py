@@ -411,6 +411,21 @@ st.markdown(
         display: none !important;
     }}
 
+    /* FINAL UI UPGRADE: High-Visibility Sidebar Toggle Arrow (Rex Menu) */
+    [data-testid="stExpandSidebarButton"] span,
+    [data-testid="stSidebarCollapseButton"] span {{
+        font-size: 42px !important; /* Make it significantly larger */
+        color: #0a5fd8 !important;   /* Reporting Xpress Blue */
+        font-weight: 900 !important;
+        transition: transform 0.2s ease, color 0.2s ease !important;
+    }}
+
+    [data-testid="stExpandSidebarButton"]:hover span,
+    [data-testid="stSidebarCollapseButton"]:hover span {{
+        transform: scale(1.2) !important;
+        color: #004a99 !important;
+    }}
+
     body, .stApp, [data-testid="stAppViewContainer"] {{
         background: {page_bg} !important;
         color: {text_primary} !important;
@@ -1496,4 +1511,6 @@ with insight_col:
                         f"**{html.escape(source['id'])}** \n{html.escape(source['text'][:300])}...",
                         unsafe_allow_html=True,
                     )
-
+
+
+

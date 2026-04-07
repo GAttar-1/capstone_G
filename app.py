@@ -401,15 +401,12 @@ st.markdown(
         max-width: 1440px !important;
     }}
 
-    /* THE NUCLEAR NAVIGATION FIX: Targeted specifically for Cloud-hosted Streamlit production layers */
-    [data-testid="stHeader"] button:first-of-type span,
-    [data-testid="stHeader"] button span,
-    [data-testid="stSidebarTrigger"] span,
-    [data-testid="stExpandSidebarButton"] span,
-    [data-testid="stSidebarCollapseButton"] span,
-    [data-testid="stBaseButton-headerNoPadding"] span,
-    button[aria-label*="sidebar"] span {{
-        font-size: 46px !important; /* Extremely prominent */
+    /* THE REFINED NAVIGATION FIX: Targeted strictly for sidebar navigation arrows */
+    button[aria-label*="sidebar"] span,
+    button[data-testid*="Sidebar"] span,
+    button[data-testid*="stSidebarCollapse"] span,
+    button[data-testid*="stExpandSidebar"] span {{
+        font-size: 47px !important; /* Extremely prominent */
         color: #0a5fd8 !important;   /* Reporting Xpress Blue */
         fill: #0a5fd8 !important;
         font-weight: 900 !important;
@@ -421,7 +418,7 @@ st.markdown(
 
     /* Ensuring the header height is sufficient for the Cloud wrapper */
     [data-testid="stHeader"], header {{
-        height: 56px !important;
+        height: 58px !important;
         background: transparent !important;
         z-index: 999999 !important;
     }}

@@ -11,14 +11,14 @@ import streamlit.components.v1 as components
 import streamlit as st
 import streamlit.components.v1 as components
 
-from rag_pipeline import ask_ai, ask_ai_stream, flag_chunk_in_pinecone
-
 st.set_page_config(
     layout="wide", 
     page_title="Reporting Xpress | AI Fundraising Assistant", 
     page_icon="🎨", 
     initial_sidebar_state="collapsed"
 )
+
+from rag_pipeline import ask_ai, ask_ai_stream, flag_chunk_in_pinecone
 
 # SEO and Accessibility Meta-Tag Injection
 st.markdown(

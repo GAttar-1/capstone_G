@@ -54,11 +54,6 @@ st.markdown(
 
 def check_password():
     """Returns `True` if the user had the correct password."""
-    # SECURITY: Lighthouse Audit Bypass (Master Key for Diagnostic Mode)
-    # Use this URL for Lighthouse: .../?audit=RX-AUDIT-2025-X99-PROD-ZERO-TRUST
-    if st.query_params.get("audit") == "RX-AUDIT-2025-X99-PROD-ZERO-TRUST":
-        return True
-
     password_secret = os.getenv("WEB_PASSWORD", "cihubsecure")
     
     def password_entered():
@@ -1578,52 +1573,7 @@ with insight_col:
                         unsafe_allow_html=True,
                     )
 
-# FINAL UI brand injector for Cloud environments (Injected at the end)
-import streamlit.components.v1 as components
-components.html("""
-    <script>
-    let optimizationCount = 0;
-    const pulseLimit = 50; // Stop after 5 seconds (50 * 100ms)
-    
-    const optimizer = setInterval(function() {
-        optimizationCount++;
-        [window, window.parent].forEach(win => {
-            try {
-                // 1. Force SEO & Scaling into Head
-                let head = win.document.head;
-                if (!win.document.querySelector('meta[name="description"]')) {
-                    let m = win.document.createElement('meta');
-                    m.name = "description";
-                    m.content = "Reporting Xpress | AI Fundraising Assistant - Professional metrics and data-driven insights.";
-                    head.appendChild(m);
-                }
-                let v = win.document.querySelector('meta[name="viewport"]');
-                if (v && !v.content.includes('user-scalable=yes')) {
-                    v.content = "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes";
-                }
 
-                // 2. Lock Landmarks
-                let main = win.document.querySelector('section.main') || win.document.querySelector('.main') || win.document.querySelector('[data-testid="stAppViewContainer"]');
-                if (main && !main.getAttribute('role')) {
-                    main.setAttribute('role', 'main');
-                }
-
-                // 3. Name Anonymous Buttons
-                win.document.querySelectorAll('button').forEach(btn => {
-                    if (!btn.getAttribute('aria-label') && (btn.innerText.includes('sidebar') || btn.querySelector('svg'))) {
-                        btn.setAttribute('aria-label', 'Toggle Navigation');
-                    }
-                });
-            } catch (e) {}
-        });
-        
-        // Performance: Stop the pulse once landmarks are likely locked (5 seconds)
-        if (optimizationCount > pulseLimit) {
-            clearInterval(optimizer);
-        }
-    }, 100);
-    </script>
-""", height=0)
 
 
 

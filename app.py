@@ -6,14 +6,51 @@ import os
 import re
 import time
 from datetime import datetime
-import streamlit.components.v1 as components
 
 import streamlit as st
 import streamlit.components.v1 as components
 
+st.set_page_config(
+    layout="wide", 
+    page_title="Reporting Xpress | AI Fundraising Assistant", 
+    page_icon="🎨", 
+    initial_sidebar_state="collapsed"
+)
+
 from rag_pipeline import ask_ai, ask_ai_stream, flag_chunk_in_pinecone
 
-st.set_page_config(layout="wide", page_title="Reporting Xpress", initial_sidebar_state="collapsed")
+# Optimized UI and Branding (Static CSS for Performance)
+st.markdown(
+    """
+    <style>
+    /* High-Performance Rex Blue Branding */
+    [data-testid="stSidebarCollapse"] svg path, 
+    [data-testid="stSidebarTrigger"] svg path {
+        fill: #0a5fd8 !important;
+    }
+    [data-testid="stSidebarCollapse"] svg,
+    [data-testid="stSidebarTrigger"] svg {
+        width: 32px !important;
+        height: 32px !important;
+        transform: scale(1.2) !important;
+    }
+    
+    /* Accessibility skip link */
+    .skip-link {
+        position: absolute;
+        top: -40px;
+        left: 0;
+        background: #0a5fd8;
+        color: white;
+        padding: 8px;
+        z-index: 100;
+        transition: top 0.3s;
+    }
+    .skip-link:focus { top: 0; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 def check_password():
     """Returns `True` if the user had the correct password."""
@@ -340,7 +377,7 @@ def get_base64_image(image_path):
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-logo_path = os.path.join(current_dir, "reportingxpresslogo.jpg")
+logo_path = os.path.join(current_dir, "assets", "logo.jpg")
 logo_base64 = get_base64_image(logo_path)
 
 if logo_base64:
@@ -1550,47 +1587,7 @@ with insight_col:
                         unsafe_allow_html=True,
                     )
 
-    # FINAL UI brand injector for Cloud environments (Injected at the end)
-    import streamlit.components.v1 as components
-    components.html("""
-        <script>
-        function applyBranding() {
-            const selectors = [
-                'button[aria-label*="sidebar"]', 
-                'button[data-testid*="sidebar"]',
-                '[data-testid="stSidebarTrigger"]',
-                'button[aria-label*="Expand"]',
-                'button[aria-label*="Collapse"]'
-            ];
-            
-            // Check both local and parent window (Cloud wrapper)
-            [window, window.parent].forEach(win => {
-                try {
-                    selectors.forEach(selector => {
-                        const elements = win.document.querySelectorAll(selector);
-                        elements.forEach(el => {
-                            el.style.setProperty('z-index', '9999999', 'important');
-                            const icon = el.querySelector('span') || el.querySelector('i') || el;
-                            if (icon) {
-                                icon.style.setProperty('font-size', '44px', 'important');
-                                icon.style.setProperty('color', '#0a5fd8', 'important');
-                                icon.style.setProperty('fill', '#0a5fd8', 'important');
-                                icon.style.setProperty('font-weight', '900', 'important');
-                            }
-                        });
-                    });
-                } catch (e) {}
-            });
-        }
-        
-        // Continuous branding check (for Cloud persistence)
-        const observer = new MutationObserver(applyBranding);
-        observer.observe(document.body, { childList: true, subtree: true });
-        try { observer.observe(window.parent.document.body, { childList: true, subtree: true }); } catch (e) {}
-        applyBranding(); // Initial run
-        setInterval(applyBranding, 2000); // Heartbeat re-application
-        </script>
-    """, height=0)
+
 
 
 

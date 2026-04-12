@@ -29,7 +29,8 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 index = pc.Index("officialreportingxpress")
 
-REGISTRY_FILE = "vectorized_registry.txt"
+# PRODUCTION PATHS: Relative to this script's location in /scripts
+REGISTRY_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "registry.txt")
 
 def load_processed_files():
     """Loads the list of already vectorized files from the local registry."""
@@ -40,6 +41,7 @@ def load_processed_files():
 
 def mark_file_as_processed(filename):
     """Adds a successfully vectorized file to the local registry."""
+    os.makedirs(os.path.dirname(REGISTRY_FILE), exist_ok=True)
     with open(REGISTRY_FILE, "a") as f:
         f.write(f"{filename}\n")
 
@@ -70,11 +72,14 @@ def assign_bucket_with_ai(text_sample):
     
     return response.choices[0].message.content.strip()
 
-def process_pdf_directory(directory_path="research_docs"):
+def process_pdf_directory(directory_path=None):
     """
     Scans a folder, extracts text, uses AI to classify the document, 
     and vectorizes it using grammar-aware page-by-page chunking.
     """
+    if directory_path is None:
+        directory_path = os.path.join(os.path.dirname(__file__), "..", "research")
+
     if not os.path.exists(directory_path):
         os.makedirs(directory_path)
         print(f"Created '{directory_path}'. Please drop your PDFs in there.")
@@ -168,4 +173,4 @@ def process_pdf_directory(directory_path="research_docs"):
             mark_file_as_processed(filename)
 
 if __name__ == "__main__":
-    process_pdf_directory("research_docs")
+    process_pdf_directory()

@@ -3,14 +3,19 @@
 # It will test the RAG pipeline and generate an evaluation_report.csv
 
 import os
+import sys
 import csv
 import re
 from datetime import datetime
 from rag_pipeline import ask_ai
 
-# --- CONFIGURATION: Define benchmark run version here ---
-version = "3.5"  # Current Release
-run_notes = "Full evaluation with dual-pass verification loop and 0.0 temperature." 
+# Fix encoding for Windows terminal
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+
+# --- CONFIGURATION: Update 4 Transformation Test ---
+version = "4"
+run_notes = "Reformatted User Prompt Transformation" 
 csv_filename = f"benchmark_run_v{version.replace('.', '_')}_{datetime.now().strftime('%Y%H%M')}.csv"
 
 # Industry-standard test questions based on client minutes + CI Hub Analytics Library
@@ -108,7 +113,7 @@ TEST_QUESTIONS = [
 ]
 
 def run_evaluation():
-    print(f"📊 Starting RAG Evaluation for {len(TEST_QUESTIONS)} questions...\n")
+    print(f"📊 Starting RAG Evaluation (v{version}) for {len(TEST_QUESTIONS)} questions...\n")
     
     results = []
     
@@ -139,12 +144,11 @@ def run_evaluation():
     # Calculate Average Confidence
     avg_confidence = 0
     if results:
-        # We use a clean results list (excluding the summary row if it was added)
         numeric_results = [r for r in results if r["Timestamp"] != "SUMMARY"]
         total_conf = sum(float(r["Confidence Score"].replace("%", "")) for r in numeric_results)
         avg_confidence = total_conf / len(numeric_results)
     
-    # Append the Summary/Average row to the results (for the CSV itself)
+    # Append the Summary/Average row to the results
     results.append({
         "Timestamp": "SUMMARY",
         "Question": "AVERAGE CONFIDENCE SCORE",
@@ -166,10 +170,9 @@ def run_evaluation():
     csv_abs_path = os.path.abspath(csv_filename)
     
     if os.path.exists(excel_file):
-        print(f"🔄 Appending newest run to the Master Excel workbook...")
+        print(f"🔄 Appending to Master Excel workbook (Non-Destructive Mode)...")
         logo_path = os.path.abspath("reportingxpresslogo.jpg")
         
-        # Build the script with string replacement to avoid f-string / brace madness
         ps_script_template = r"""
         $ErrorActionPreference = "Stop"
         $excel = New-Object -ComObject Excel.Application
@@ -179,7 +182,7 @@ def run_evaluation():
             $targetWb = $excel.Workbooks.Open('__EXCEL_FILE__')
             $sourceWb = $excel.Workbooks.Open('__CSV_FILE__')
             
-            # 1. Determine Sequential Name
+            # 1. Determine Sequential Name (Uppercase 'Update')
             $nextNum = 1
             foreach ($s in $targetWb.Sheets) {
                 if ($s.Name -match "Google Antigravity [Uu]pdate (\d+)") {
@@ -187,7 +190,7 @@ def run_evaluation():
                     if ($num -ge $nextNum) { $nextNum = $num + 1 }
                 }
             }
-            $sheet_name = "Google Antigravity update $nextNum"
+            $sheet_name = "Google Antigravity Update $nextNum"
             Write-Host "Determined New Sheet Name: $sheet_name"
 
             # 2. Copy New Sheet to the FAR RIGHT
@@ -206,91 +209,52 @@ def run_evaluation():
             
             $sourceWb.Close($false)
 
-            # 3. Build/Refresh "Benchmark Summary" Dashboard (FAR LEFT)
+            # 3. Update "Benchmark Summary" Dashboard (FAR LEFT) - APPEND MODE
             $summaryName = "Benchmark Summary"
             $summarySheet = $null
             foreach ($s in $targetWb.Sheets) {
                 if ($s.Name -eq $summaryName) { $summarySheet = $s; break }
             }
-            if (-not $summarySheet) {
-                $summarySheet = $targetWb.Sheets.Add($targetWb.Sheets.Item(1))
-                $summarySheet.Name = $summaryName.ToString()
-            }
-            $summarySheet.Move($targetWb.Sheets.Item(1)) | Out-Null
-            $summarySheet.Cells.Clear() 
+            if ($summarySheet) {
+                # Find the last occupied row based on Column A
+                $lastRow = $summarySheet.Cells($summarySheet.Rows.Count, 1).End(-4162).Row # xlUp
+                if ($lastRow -lt 5) { $lastRow = 5 } # Fallback to header row
+                $newRow = $lastRow + 1
+                Write-Host "Appending data to row: $newRow"
 
-            # Dashboard Styling & Branding
-            $summarySheet.Tab.ColorIndex = 37 # Light Blue tab
-            
-            # Insert Logo
-            $logo = '__LOGO_PATH__'
-            if (Test-Path $logo) {
-                $shape = $summarySheet.Shapes.AddPicture($logo, $false, $true, 5, 5, 120, 60)
-            }
-            
-            $summarySheet.Cells.Item(2, 3).Value2 = "📊 Reporting Xpress: RAG Performance Dashboard"
-            $summarySheet.Cells.Item(2, 3).Font.Size = 18
-            $summarySheet.Cells.Item(2, 3).Font.Bold = $true
-            $summarySheet.Cells.Item(2, 3).Font.ColorIndex = 11 # Dark Blue
-
-            $headers = @("Benchmark Version", "Avg Confidence Score", "Questions Tested", "Log Timestamp", "Notes")
-            for ($i=0; $i -lt $headers.Count; $i++) {
-                $cell = $summarySheet.Cells.Item(5, [int]($i+1))
-                $cell.Value2 = $headers[$i].ToString()
-                $cell.Font.Bold = $true
-                $cell.Interior.ColorIndex = 11 # Dark Blue
-                $cell.Font.ColorIndex = 2 # White
-                $cell.HorizontalAlignment = -4108 # Center
-            }
-
-            # Rebuild Summary Table (5 Columns)
-            $rowIdx = 6
-            $processedSheets = New-Object System.Collections.Generic.HashSet[string]
-            foreach ($sheet in $targetWb.Sheets) {
-                $name = $sheet.Name.ToString()
-                if ($name -ne $summaryName -and -not $processedSheets.Contains($name)) {
-                    $processedSheets.Add($name) | Out-Null
-                    $lastRow = [int]$sheet.UsedRange.Rows.Count
-                    $count = 0
-                    $timestamp = ""
-                    $sheetNote = $sheet.Cells.Item(1, 7).Text # Pull from G1
-
-                    for ($r=2; $r -le $lastRow; $r++) {
-                        $tag = $sheet.Cells.Item([int]$r, 1).Value2
-                        if ($tag -ne "SUMMARY" -and $tag -ne $null) {
-                            $count++
-                            if ($timestamp -eq "") { $timestamp = $sheet.Cells.Item([int]$r, 1).Value2.ToString() }
-                        }
+                # Calculate values for this specific run
+                $lastRunDataRow = [int]$newSheet.UsedRange.Rows.Count
+                $count = 0
+                $timestamp = ""
+                for ($r=2; $r -le $lastRunDataRow; $r++) {
+                    $tag = $newSheet.Cells.Item([int]$r, 1).Value2
+                    if ($tag -ne "SUMMARY" -and $tag -ne $null) {
+                        $count++
+                        if ($timestamp -eq "") { $timestamp = $newSheet.Cells.Item([int]$r, 1).Value2.ToString() }
                     }
-                    
-                    $summarySheet.Cells.Item([int]$rowIdx, 1).Value2 = $name
-                    $summarySheet.Cells.Item([int]$rowIdx, 2).Formula = "='" + $name + "'!`$H`$1"
-                    $summarySheet.Cells.Item([int]$rowIdx, 2).NumberFormat = "0.0%"
-                    $summarySheet.Cells.Item([int]$rowIdx, 3).Value2 = [int]$count
-                    $summarySheet.Cells.Item([int]$rowIdx, 4).Value2 = $timestamp.ToString()
-                    $summarySheet.Cells.Item([int]$rowIdx, 5).Value2 = $sheetNote.ToString() # New 5th column
-                    
-                    if ($rowIdx % 2 -eq 0) { $summarySheet.Range("A$rowIdx:E$rowIdx").Interior.ColorIndex = 34 }
-                    $rowIdx++
                 }
-            }
-            $summarySheet.Columns.AutoFit()
-
-            # Dynamic Trend Chart
-            if ($rowIdx -gt 6) {
-                $chartRange = $summarySheet.Range("A5:B" + [int]($rowIdx - 1))
-                $chartObj = $summarySheet.ChartObjects().Add(450, 80, 600, 350)
-                $chart = $chartObj.Chart
-                $chart.SetSourceData($chartRange)
-                $chart.ChartType = 65 # xlLineMarkers
-                $chart.HasTitle = $true
-                $chart.ChartTitle.Text = "RAG Confidence Progression"
-                $chart.Axes(1, 1).HasTitle = $true 
-                $chart.Axes(1, 1).AxisTitle.Text = "Benchmark Version"
-                $chart.Axes(2, 1).HasTitle = $true 
-                $chart.Axes(2, 1).AxisTitle.Text = "Avg Confidence %"
-                $chart.Axes(2, 1).MinimumScale = 0
-                $chart.Axes(2, 1).MaximumScale = 100
+                
+                $sheetNote = $newSheet.Cells.Item(1, 7).Text # Pull from G1
+                
+                # Append exactly one row
+                $summarySheet.Cells.Item($newRow, 1).Value2 = $newSheet.Name
+                $summarySheet.Cells.Item($newRow, 2).Formula = "='" + $newSheet.Name + "'!`$H`$1"
+                $summarySheet.Cells.Item($newRow, 2).NumberFormat = "0.0%"
+                $summarySheet.Cells.Item($newRow, 3).Value2 = [int]$count
+                $summarySheet.Cells.Item($newRow, 4).Value2 = $timestamp.ToString()
+                $summarySheet.Cells.Item($newRow, 5).Value2 = $sheetNote.ToString()
+                
+                # Update Existing Chart (assuming there's a chart object on the page)
+                if ($summarySheet.ChartObjects().Count -gt 0) {
+                    Write-Host "Updating data source for existing chart..."
+                    $chartObj = $summarySheet.ChartObjects(1)
+                    $chart = $chartObj.Chart
+                    # Update range to include the new row (assuming headers start at A5)
+                    $chartRange = $summarySheet.Range("A5:B" + $newRow)
+                    $chart.SetSourceData($chartRange)
+                }
+            } else {
+                Write-Host "Warning: Benchmark Summary sheet not found. Skipping dashboard append."
             }
 
             $targetWb.Save()
@@ -303,15 +267,13 @@ def run_evaluation():
             [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
         }
         """
-        ps_script = ps_script_template.replace("__EXCEL_FILE__", excel_file).replace("__CSV_FILE__", csv_abs_path).replace("__LOGO_PATH__", logo_path).replace("__RUN_NOTES__", run_notes)
+        ps_script = ps_script_template.replace("__EXCEL_FILE__", excel_file).replace("__CSV_FILE__", csv_abs_path).replace("__RUN_NOTES__", run_notes)
         import subprocess
         result = subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, text=True)
         if "Success" in result.stdout:
-            # Extract sheet name from PowerShell output if possible
             match = re.search(r"Determined New Sheet Name: (.*)", result.stdout)
             result_sheet = match.group(1).strip() if match else "New Update"
             print(f"✅ Successfully appended to {os.path.basename(excel_file)} as tab '{result_sheet}'!")
-            # Cleanup: Delete the CSV after successful merge as requested
             try:
                 os.remove(csv_filename)
                 print(f"🗑️ Deleted temporary file: {csv_filename}")

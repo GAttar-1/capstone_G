@@ -17,13 +17,18 @@ st.set_page_config(layout="wide", page_title="Reporting Xpress", initial_sidebar
 
 def check_password():
     """Returns `True` if the user had the correct password."""
-    password_secret = os.getenv("WEB_PASSWORD", "cihubsecure")
+    password_secret = os.getenv("WEB_PASSWORD")
+    
+    if not password_secret:
+        st.error("🔒 Application security not configured. Please set the WEB_PASSWORD environment variable.")
+        st.stop()
+
     
     def password_entered():
         entered = st.session_state.get("password")
         if entered is None:
             return
-        if entered == password_secret:
+        if entered and password_secret and entered.lower() == password_secret.lower():
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # don't store password
         else:
@@ -913,6 +918,21 @@ st.markdown(
         padding: 0.05rem 0.4rem;
     }}
 
+    .search-tag {{
+        display: inline-flex;
+        align-items: center;
+        background: rgba(38,101,188,0.05);
+        border: 1px solid {border_color};
+        border-radius: 6px;
+        padding: 0.25rem 0.5rem;
+        margin: 0 0.35rem 0.35rem 0;
+        font-size: inherit;
+        font-weight: 400;
+        color: #2665bc !important;
+        letter-spacing: 0.02em;
+        text-transform: capitalize;
+    }}
+
     .skip-link {{
         position: fixed !important;
         background: #0a5fd8 !important;
@@ -1276,10 +1296,8 @@ with chat_col:
                 elif event_type == "meta":
                     result = event_value
 
-            # Streaming done - clear bubble, scroll to top, then insights fade in
-            stream_placeholder.empty()
-            thinking_placeholder.empty()
-
+            # Streaming done - but keep bubble visible until scroll finishes!
+            
             # Soft scroll to top before rerun so user sees the full answer from the beginning
             # A unique key forces Streamlit to treat each call as a fresh component
             import random
@@ -1288,27 +1306,31 @@ with chat_col:
                 <script>
                 // scroll-uid: {_scroll_uid}
                 setTimeout(function() {{
-                    var el = window.parent.document.querySelector('[data-testid="stMain"]')
-                           || window.parent.document.querySelector('section.main')
-                           || window.parent.document.documentElement;
-                    if (!el) return;
-                    var start = el.scrollTop;
-                    var duration = 900;
-                    var startTime = null;
-                    function easeInOutCubic(t) {{
-                        return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+                    try {{
+                        var pDoc = window.parent.document;
+                        // Target the absolute top elements of our UI
+                        var topElement = pDoc.querySelector('.topbar-shell') 
+                                      || pDoc.querySelector('[data-testid="stHeader"]')
+                                      || pDoc.querySelector('.stApp');
+                        
+                        if (topElement) {{
+                            topElement.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+                        }} else {{
+                            // Safe fallback to container scroll
+                            var container = pDoc.querySelector('[data-testid="stAppViewContainer"]') || pDoc.querySelector('[data-testid="stMain"]');
+                            if (container) container.scrollTo({{ top: 0, behavior: 'smooth' }});
+                        }}
+                    }} catch (e) {{ 
+                        console.error('Smooth scroll failed', e); 
                     }}
-                    function step(ts) {{
-                        if (!startTime) startTime = ts;
-                        var progress = Math.min((ts - startTime) / duration, 1);
-                        el.scrollTop = start * (1 - easeInOutCubic(progress));
-                        if (progress < 1) window.requestAnimationFrame(step);
-                    }}
-                    window.requestAnimationFrame(step);
-                }}, 200);
+                }}, 150);
                 </script>
             """, height=1)
-            time.sleep(1.3)  # enough for iframe init + 200ms delay + 900ms scroll
+            time.sleep(1.5)  # Let the native smooth scrolling animation finish fully
+
+            # Now that we've gently scrolled up, clear the placeholders
+            stream_placeholder.empty()
+            thinking_placeholder.empty()
 
 
             logic_steps = result.get(
@@ -1345,7 +1367,9 @@ with chat_col:
                     # Cache the expensive strings
                     "cached_selection_reason": selection_reason,
                     "cached_action_summary": action_summary,
-                    "cached_source_chips": cached_source_chips
+                    "cached_source_chips": cached_source_chips,
+                    "search_query": result.get("search_query", "Refined search intent"),
+                    "diagnosis": logic_details.get("diagnosis", "Standard analysis")
                 }
             )
             st.session_state.sources = result.get("sources", [])
@@ -1394,13 +1418,17 @@ with insight_col:
     # Use cached values if they exist, fallback to logic loop only as a safety
     selection_reason = latest_assistant.get("cached_selection_reason", "") if latest_assistant else ""
     action_summary = latest_assistant.get("cached_action_summary", "") if latest_assistant else ""
+    action_summary_html = html.escape(action_summary).replace(chr(10), "<br>")
     source_chips = latest_assistant.get("cached_source_chips", "") if latest_assistant else ""
     
-    # If using older history without caching, compute once (it might still be slow)
+    # Ensure logic_details is consistently available for the UI headers
+    logic_details = extract_logic_details(latest_logic) if latest_logic else {}
+    
+    # If using older history without caching, compute once
     if not selection_reason and latest_logic:
-        logic_details = extract_logic_details(latest_logic)
         selection_reason = build_selection_reason(latest_question, logic_details, len(latest_assistant.get("sources", [])))
         action_summary = build_suggested_action(latest_answer, logic_details)
+        action_summary_html = html.escape(action_summary).replace(chr(10), "<br>")
     
     has_fresh_answer = bool(latest_assistant and not is_processing and completed_question == latest_question)
     confidence_value = st.session_state.get("confidence", 100.0)
@@ -1452,18 +1480,12 @@ with insight_col:
                 f"""
                 <div class="insight-group">
                     <div class="insight-box">
-                        <div class="insight-box-header">Recommended Analytics</div>
-                        <div class="insight-box-body">
-                            <strong>{html.escape(infer_analysis_title(latest_question))}</strong>
-                        </div>
-                    </div>
-                    <div class="insight-box">
-                        <div class="insight-box-header">Why This Was Selected</div>
-                        <div class="insight-box-body">{selection_reason}</div>
+                        <div class="insight-box-header">Keywords Utilized</div>
+                        <div class="insight-box-body">{" ".join([f'<span class="search-tag">{html.escape(t.strip().title() if t.strip().lower() != "qx147" else "QX147")}</span>' for t in latest_assistant.get('search_query', 'Assessing Query...').replace('|', ',').split(',') if t.strip()])}</div>
                     </div>
                     <div class="insight-box">
                         <div class="insight-box-header">Suggested Action</div>
-                        <div class="insight-box-body">{html.escape(action_summary).replace("\n", "<br>")}</div>
+                        <div class="insight-box-body">{action_summary_html}</div>
                     </div>
                     <div class="insight-box">
                         <div class="insight-box-header">Supporting Sources</div>
@@ -1478,16 +1500,8 @@ with insight_col:
                 f"""
                 <div class="insight-group">
                     <div class="insight-box">
-                        <div class="insight-box-header">Recommended Analytics</div>
-                        <div class="insight-box-body">
-                            <strong>{html.escape(infer_analysis_title(latest_question))}</strong>
-                        </div>
-                    </div>
-                    <div class="insight-box">
-                        <div class="insight-box-header">Why This Was Selected</div>
-                        <div class="insight-box-body">
-                            Rex is generating guidance for your latest question: "{html.escape(latest_question)}".
-                        </div>
+                        <div class="insight-box-header">Keywords Utilized</div>
+                        <div class="insight-box-body"><span class="search-tag" style="background:transparent;border-color:transparent;padding:0;">Reframing with technical vocabulary...</span></div>
                     </div>
                     <div class="insight-box">
                         <div class="insight-box-header">Suggested Action</div>

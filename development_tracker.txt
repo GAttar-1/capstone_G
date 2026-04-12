@@ -1,0 +1,27 @@
+# Reporting Xpress | Development & Bug Tracker
+# Submission Deadline: Sunday (4/12/26) | Internal Review: Friday (4/10/26)
+
+## [2026-04-09] - Rex Final Polish (Update 4)
+
+### Improvements
+- [x] RESTORATION: Successfully recovered master `Combined_Benchmark_Results.xlsx` from backup.
+- [x] DASHBOARD: Implemented Non-Destructive "Append" mode for Excel updates to preserve custom styling.
+- [x] ANALYTICS: Verified auto-extending chart logic on "Benchmark Summary" home page.
+- [x] NAMING: Updated benchmark tabs to use uppercase "Update" (e.g., "Google Antigravity Update 4").
+- [x] PROMPT: Tightened `transform_query` to prevent "half-answering". Added 20+ standardized vocabulary terms. (Completed)
+- [x] UI: Removal of "Why this was selected" and "Recommended Analytics" sections. (Completed)
+- [x] LOGIC: Reformatted "Keywords Utilized" to display as capitalized chips. Adjusted CSS for flush spacing, standard font scaling, and updated the header title. (Completed)
+- [x] MAPPING: Implemented hard-coded logic for QX147 (Recently Lapsed 18 Month) correlation. (Completed)
+
+### Bug Fixes
+- [x] ENCODING: Resolved `UnicodeEncodeError` in Windows terminal by reconfiguring stdout to UTF-8.
+- [x] SCOPING: Fixed `NameError` where 'search_query' was not defined in AI functions due to internal function scoping.
+- [x] AUTOMATION: Fixed Excel background locking issues by implementing robust COM cleanup logic.
+- [x] QUERY LEAK: Fixed issue where the RAG would sometimes answer the question before fetching documents.
+
+## [2026-04-12] - Security & UX Refinement (Final Submission Day)
+
+### Improvements
+- [x] SECURITY: Centralized application secrets by moving the access password to the `.env` file and removing all hardcoded fallbacks from the codebase.
+- [x] SECURITY: Implemented a strict environment check that prevents the application from launching if security configurations are missing.
+- [x] UX: Upgraded password verification to be case-insensitive (e.g., allowing "CIHUBSECURE"), improving accessibility for all users.

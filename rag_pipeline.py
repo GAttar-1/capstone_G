@@ -17,6 +17,40 @@ index = pc.Index("officialreportingxpress")
 # Set this to False to instantly revert to raw, fast searching without LLM intervention
 USE_HYDE = True
 
+APPROVED_ANALYTICS_VOCAB = [
+    "lapse",
+    "recaptured",
+    "New donors",
+    "retention rate",
+    "retained",
+    "lapse rate",
+    "increasing gift amounts",
+    "decreasing gift amounts",
+    "seasonal and timing patterns",
+    "lifetime value",
+    "last fiscal year",
+    "current fiscal year",
+    "concentration risk",
+    "new donor conversion",
+    "top segment",
+    "middle segment",
+    "bottom segment",
+    "waterfall analysis",
+    "tenure",
+    "first-time",
+    "QX147", # Recently Lapsed 18 Month
+]
+
+ANSWER_LEAK_PATTERNS = [
+    r"\byou should\b",
+    r"\bwe recommend\b",
+    r"\bi recommend\b",
+    r"\bthe best strategy\b",
+    r"\bnext step\b",
+    r"\baction item\b",
+    r"\byour .*?(rate|value|revenue|performance) is\b",
+]
+
 
 def flag_chunk_in_pinecone(chunk_id: str):
     """
@@ -36,32 +70,109 @@ def flag_chunk_in_pinecone(chunk_id: str):
         print(f"[Pinecone flag error] {chunk_id}: {e}")
         return False
 
+
+def _normalize_query_text(text: str) -> str:
+    """Normalizes model output to a single clean line for embedding."""
+    cleaned = (text or "").strip().strip('"').strip("'")
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned
+
+
+def _contains_answer_like_content(text: str) -> bool:
+    lowered = (text or "").lower()
+    return any(re.search(pattern, lowered) for pattern in ANSWER_LEAK_PATTERNS)
+
+
+def _build_vocab_terms(question: str):
+    """Maps user phrasing to approved retrieval vocabulary terms."""
+    q = (question or "").lower()
+    terms = []
+
+    if any(token in q for token in ["lapse", "lapsed", "attrition"]):
+        terms.extend(["lapse", "recaptured"])
+    if any(token in q for token in ["retention", "keep", "churn"]):
+        terms.append("retention rate")
+    if any(token in q for token in ["ltv", "lifetime", "value"]):
+        terms.append("lifetime value")
+    if any(token in q for token in ["top", "major", "segment", "tier"]):
+        terms.append("top segment")
+    if any(token in q for token in ["funnel", "drop", "transition", "waterfall"]):
+        terms.append("waterfall analysis")
+    if any(token in q for token in ["tenure", "years", "new vs", "new", "aging"]):
+        terms.append("tenure")
+    if any(token in q for token in ["fiscal", "fy", "year over year", "yoy"]):
+        terms.append("fiscal year metrics")
+
+    # Preserve order while de-duplicating.
+    seen = set()
+    deduped = []
+    for term in terms:
+        if term not in seen:
+            deduped.append(term)
+            seen.add(term)
+    return deduped
+
+
+def _safe_reframed_query(model_text: str, original_question: str) -> str:
+    """Ensures transformed query is reframed-only and never answer-like."""
+    candidate = _normalize_query_text(model_text)
+    if not candidate:
+        return original_question
+
+    if _contains_answer_like_content(candidate):
+        return original_question
+
+    # Keep retrieval-focused terms compactly appended.
+    vocab_terms = _build_vocab_terms(original_question)
+    if vocab_terms:
+        missing = [t for t in vocab_terms if t.lower() not in candidate.lower()]
+        if missing:
+            candidate = f"{candidate} | terms: {', '.join(missing[:3])}"
+
+    return candidate
+
 def transform_query(question):
     """
-    Asks the LLM to generate a hypothetical 'perfect technical description' 
-    of the answer to better match document vector space.
+    Reframes the user question into a retrieval query without answering it.
     """
     if not USE_HYDE:
         return question
 
     prompt = f"""
-    You are a technical search expert for a fundraising analytics platform. 
-    The user asked: "{question}"
-    
-    Instead of answering, generate a single, highly detailed, technical paragraph 
-    that would appear in a professional Reporting Xpress documentation manual or a CI Hub research report 
-    to PERFECTLY answer this question. Use technical keywords like 'retention rate', 'delta', 
-    'cohort analysis', 'mean-reversion', or 'predictive reliability'.
-    
-    Your output must be EXACTLY one paragraph of technical description. No conversational filler.
-    """
-    
-    response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.0
-    )
-    return response.choices[0].message.content.strip()
+Rewrite the user question as a search query for a fundraising RAG system.
+
+Rules (CRITICAL):
+- Strictly Reframe. Do NOT answer the question.
+- Use only approved technical vocabulary: {', '.join(APPROVED_ANALYTICS_VOCAB)}.
+- If the user mentions "lost" or "lapsed" donors, always include "QX147" or "Recently Lapsed 18 Month".
+- Simplify the intent. Remove fluff, greetings, or filler words.
+- Output EXACTLY one line of plain keywords/phrases.
+- BANNED: advice, recommendations, pronouns like 'we' or 'you'.
+
+User question: {question}
+"""
+
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a retrieval query rewriter. "
+                        "You only rewrite the user query for semantic search. "
+                        "Never answer the question."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.0,
+        )
+        rewritten = response.choices[0].message.content
+        return _safe_reframed_query(rewritten, question)
+    except Exception:
+        # Safe fallback: never block retrieval if rewrite fails.
+        return question
 
 def retrieve_chunks(question):
     """Embeds user question, searches Pinecone, and forces deep page retrieval for source diversity."""
@@ -126,12 +237,12 @@ def retrieve_chunks(question):
         chosen_chunk = random.choice(chunks[:3])
         contexts.append(chosen_chunk)
 
-    return contexts
+    return contexts, search_query
 
 def ask_ai(question, require_logic=True):
     """Passes context to the LLM. Dynamically requests logic based on the UI toggle."""
     
-    contexts = retrieve_chunks(question)
+    contexts, search_query = retrieve_chunks(question)
 
     formatted_contexts = []
     for ctx in contexts:
@@ -241,7 +352,8 @@ User Question:
         "answer": final_answer,
         "logic": logic_html, 
         "sources": contexts,
-        "avg_confidence": avg_confidence
+        "avg_confidence": avg_confidence,
+        "search_query": search_query
     }
 
 def verify_response_pass(question, assistant_answer, contexts):
@@ -291,7 +403,7 @@ def ask_ai_stream(question, require_logic=True, history=None):
     history: list of dicts [{"role": "user"|"assistant", "content": str}, ...]
              The last 3-5 turns from the session, used for short-term memory.
     """
-    contexts = retrieve_chunks(question)
+    contexts, search_query = retrieve_chunks(question)
 
     formatted_contexts = []
     for ctx in contexts:
@@ -412,5 +524,6 @@ User Question:
         "answer": final_answer,
         "logic": logic_html,
         "sources": contexts,
-        "avg_confidence": avg_confidence
+        "avg_confidence": avg_confidence,
+        "search_query": search_query
     })

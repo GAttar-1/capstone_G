@@ -348,7 +348,7 @@ def render_chat_message(message, is_user):
     if is_user:
         body = html.escape(strip_html(message["content"])).replace("\n", "<br>")
         return f"""
-        <div class="chat-row user">
+        <div class="chat-row user" tabindex="0" aria-label="Your message: {html.escape(strip_html(message['content']))}">
             <div class="chat-avatar">Y</div>
             <div class="chat-bubble">
                 <div class="bubble-text">{body}</div>
@@ -359,12 +359,12 @@ def render_chat_message(message, is_user):
 
     body = (message.get("content", "") or "").replace("\n", "<br>")
     return f"""
-    <div class="chat-row assistant">
+    <div class="chat-row assistant" tabindex="0" aria-label="Rex's response">
         <div class="chat-bubble">
             <div class="bubble-text">{body}</div>
             <div class="chat-meta">{timestamp}</div>
         </div>
-        <div class="chat-avatar assistant-avatar">R</div>
+        <div class="chat-avatar assistant-avatar" aria-hidden="true">R</div>
     </div>
     """
 
@@ -1178,16 +1178,49 @@ with chat_col:
                 const skipChat = doc.getElementById('skip-to-chat');
                 const questionInput = doc.querySelector('input[aria-label="Ask Rex a question"]')
                     || doc.querySelector('[data-testid="stTextInputRootElement"] input');
-                if (skipChat && questionInput && !skipChat.dataset.bound) {
-                    skipChat.dataset.bound = "true";
+                
+                if (skipChat && !doc.dataset.captureBound) {
+                    doc.dataset.captureBound = "true";
+                    
+                    doc.addEventListener('keydown', function(e) {
+                        if (e.key === 'Tab') {
+                            if (!e.shiftKey && !doc.dataset.firstTabDone) {
+                                // FIRST TAB OVERRIDE: Absolutely intercept the first Tab!
+                                doc.dataset.firstTabDone = "true";
+                                e.preventDefault();
+                                e.stopPropagation();
+                                skipChat.focus();
+                            } else if (e.shiftKey && doc.activeElement === skipChat) {
+                                // SHIFT+TAB OVERRIDE: Trap Shift+Tab specifically off this button
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const sidebarBtn = doc.querySelector('[data-testid="collapsedControl"]')
+                                                || doc.querySelector('button[aria-label="Collapse sidebar"]')
+                                                || doc.querySelector('button[aria-label="Expand sidebar"]')
+                                                || doc.querySelector('[data-testid*="stSidebarCollapseButton"]')
+                                                || doc.querySelector('[data-testid="stSidebar"] button')
+                                                || doc.querySelector('[data-testid*="stSidebarTrigger"]');
+                                if (sidebarBtn) {
+                                    sidebarBtn.setAttribute('tabindex', '0');
+                                    sidebarBtn.focus();
+                                }
+                            }
+                        }
+                    }, true); // `true` ENFORCES CAPTURE PHASE! It intercepts before React.
+                }
+
+                if (skipChat && questionInput && !skipChat.dataset.onclickBound) {
+                    skipChat.dataset.onclickBound = "true";
                     const focusInput = (e) => {
                         e.preventDefault();
                         questionInput.focus();
                     };
                     skipChat.onclick = focusInput;
-                    skipChat.onkeydown = function(e) {
-                        if (e.key === 'Enter' || e.key === ' ') focusInput(e);
-                    };
+                    skipChat.addEventListener('keydown', function(e) {
+                         if (e.key === 'Enter' || e.key === ' ') {
+                             focusInput(e);
+                         }
+                    });
                 }
             }
             function enablePromptScroll() {
@@ -1491,15 +1524,15 @@ with insight_col:
         st.markdown(
             f"""
             <div class="metric-strip">
-                <div class="metric-tile">
+                <div class="metric-tile" tabindex="0" aria-label="{user_queries} Queries This Session">
                     <span class="metric-value">{user_queries}</span>
                     <span class="metric-label">Queries This Session</span>
                 </div>
-                <div class="metric-tile">
+                <div class="metric-tile" tabindex="0" aria-label="{confidence_value:.1f}% Average Confidence">
                     <span class="metric-value">{confidence_value:.1f}%</span>
                     <span class="metric-label">Average Confidence</span>
                 </div>
-                <div class="metric-tile">
+                <div class="metric-tile" tabindex="0" aria-label="{source_count} Sources Retrieved">
                     <span class="metric-value">{source_count}</span>
                     <span class="metric-label">Sources Retrieved</span>
                 </div>
@@ -1516,15 +1549,15 @@ with insight_col:
             st.markdown(
                 f"""
                 <div class="insight-group">
-                    <div class="insight-box">
+                    <div class="insight-box" tabindex="0" aria-label="Keywords Utilized">
                         <div class="insight-box-header">Keywords Utilized</div>
                         <div class="insight-box-body">{" ".join([f'<span class="search-tag">{html.escape(t.strip().title() if t.strip().lower() != "qx147" else "QX147")}</span>' for t in latest_assistant.get('search_query', 'Assessing Query...').replace('|', ',').split(',') if t.strip()])}</div>
                     </div>
-                    <div class="insight-box">
+                    <div class="insight-box" tabindex="0" aria-label="Suggested Action">
                         <div class="insight-box-header">Suggested Action</div>
                         <div class="insight-box-body">{action_summary_html}</div>
                     </div>
-                    <div class="insight-box">
+                    <div class="insight-box" tabindex="0" aria-label="Supporting Sources">
                         <div class="insight-box-header">Supporting Sources</div>
                         <div class="insight-box-body">{source_chips}</div>
                     </div>
@@ -1536,17 +1569,17 @@ with insight_col:
             st.markdown(
                 f"""
                 <div class="insight-group">
-                    <div class="insight-box">
+                    <div class="insight-box" tabindex="0">
                         <div class="insight-box-header">Keywords Utilized</div>
                         <div class="insight-box-body"><span class="search-tag" style="background:transparent;border-color:transparent;padding:0;">Reframing with technical vocabulary...</span></div>
                     </div>
-                    <div class="insight-box">
+                    <div class="insight-box" tabindex="0">
                         <div class="insight-box-header">Suggested Action</div>
                         <div class="insight-box-body">
                             Wait for the current answer to finish generating. This section will update with tailored next steps for the newest question.
                         </div>
                     </div>
-                    <div class="insight-box">
+                    <div class="insight-box" tabindex="0">
                         <div class="insight-box-header">Supporting Sources</div>
                         <div class="insight-box-body">
                             Sources for the newest question will appear here after Rex finishes the current response.
@@ -1559,7 +1592,7 @@ with insight_col:
         else:
             st.markdown(
                 """
-                <div class="empty-panel">
+                <div class="empty-panel" tabindex="0">
                     Ask a question to populate the recommended analytics, action summary, and supporting sources.
                 </div>
                 """,
@@ -1568,7 +1601,7 @@ with insight_col:
 
         st.markdown(
             f"""
-            <div class="confidence-band">
+            <div class="confidence-band" tabindex="0" aria-label="AI Confidence Level: {confidence_label} at {confidence_value:.1f}%">
                 <div class="confidence-label">AI Confidence Level</div>
                 <div class="confidence-value" style="color:{confidence_color};">
                     {confidence_label} {confidence_symbol} ({confidence_value:.1f}%)

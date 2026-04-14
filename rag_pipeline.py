@@ -323,7 +323,7 @@ User Question:
     verified_answer = verify_response_pass(question, raw_answer, contexts)
     final_answer = verified_answer
     
-    logic_html = "<div class='logic-step'><div class='logic-detail'>Transparency Mode disabled.</div></div>"
+    logic_html = "<div class='logic-step' tabindex='0'><div class='logic-detail'>Transparency Mode disabled.</div></div>"
     
     if require_logic and "LOGIC:" in raw_answer:
         parts = re.split(r'[*#]*\s*LOGIC:\s*[*#]*', raw_answer, maxsplit=1)
@@ -341,15 +341,15 @@ User Question:
             strat_text = strat_match.group(1).strip().replace("**", "").replace("-", "") if strat_match else "Formulated recommendation."
             
             logic_html = f"""
-            <div class="logic-step">
+            <div class="logic-step" tabindex="0" aria-label="Diagnosis: {diag_text}">
                 <div class="logic-label label-diag">🔍 DIAGNOSIS</div>
                 <div class="logic-detail">{diag_text}</div>
             </div>
-            <div class="logic-step">
+            <div class="logic-step" tabindex="0" aria-label="Evidence: {evid_text}">
                 <div class="logic-label label-evid">📊 EVIDENCE</div>
                 <div class="logic-detail">{evid_text}</div>
             </div>
-            <div class="logic-step" style="border-left-color: transparent;">
+            <div class="logic-step" style="border-left-color: transparent;" tabindex="0" aria-label="Strategy: {strat_text}">
                 <div class="logic-label label-strat">🎯 STRATEGY</div>
                 <div class="logic-detail">{strat_text}</div>
             </div>
@@ -496,7 +496,7 @@ User Question:
     # --- VERIFICATION PASS: Eliminate Hallucinations ---
     verified_answer = verify_response_pass(question, raw_answer, contexts)
     final_answer = verified_answer
-    logic_html = "<div class='logic-step'><div class='logic-detail'>Transparency Mode disabled.</div></div>"
+    logic_html = "<div class='logic-step' tabindex='0'><div class='logic-detail'>Transparency Mode disabled.</div></div>"
 
     if require_logic and "LOGIC:" in raw_answer:
         parts = re.split(r'[*#]*\s*LOGIC:\s*[*#]*', raw_answer, maxsplit=1)
@@ -513,15 +513,15 @@ User Question:
             strat_text = strat_match.group(1).strip().replace("**", "").replace("-", "") if strat_match else "Formulated recommendation."
 
             logic_html = f"""
-            <div class="logic-step">
+            <div class="logic-step" tabindex="0" aria-label="Diagnosis: {diag_text}">
                 <div class="logic-label label-diag">🔍 DIAGNOSIS</div>
                 <div class="logic-detail">{diag_text}</div>
             </div>
-            <div class="logic-step">
+            <div class="logic-step" tabindex="0" aria-label="Evidence: {evid_text}">
                 <div class="logic-label label-evid">📊 EVIDENCE</div>
                 <div class="logic-detail">{evid_text}</div>
             </div>
-            <div class="logic-step" style="border-left-color: transparent;">
+            <div class="logic-step" style="border-left-color: transparent;" tabindex="0" aria-label="Strategy: {strat_text}">
                 <div class="logic-label label-strat">🎯 STRATEGY</div>
                 <div class="logic-detail">{strat_text}</div>
             </div>
